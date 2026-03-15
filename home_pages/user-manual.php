@@ -62,12 +62,12 @@ session_start();
   <div class="manual-container">
   <h1 class="site-name">BENE MediCon<span class="highlight"> User Manual</span></h1>
     <!-- Embed PDF inside page -->
-    <iframe src="docs/Users-Manual-Bene_MediCon.pdf"></iframe>
+    <iframe src="../docs/Users-Manual-Bene_MediCon.pdf"></iframe>
 
     <!-- Action buttons -->
     <div style="text-align:center; margin-top:15px;">
-      <a href="docs/Users-Manual-Bene_MediCon.pdf" target="_blank" class="btn-back">📖 Open in New Tab</a>
-      <a href="docs/Users-Manual-Bene_MediCon.pdf" download class="btn-back">⬇️ Download PDF</a>
+      <a href="../docs/Users-Manual-Bene_MediCon.pdf" target="_blank" class="btn-back">📖 Open in New Tab</a>
+      <a href="../docs/Users-Manual-Bene_MediCon.pdf" download class="btn-back">⬇️ Download PDF</a>
       <a href="about.php" class="btn-back">⬅ Back to About</a>
     </div>
   </div>
