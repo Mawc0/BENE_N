@@ -1,0 +1,21 @@
+GENERAL
+- organize codes for readabilty
+- fix / update css
+- update the user manual
+    
+ADMIN
+- make notifs have a 'mark all as read button'
+- update the logout
+- make 'add/edit categories'
+
+STAFF
+- in expiring medicines, make status expired hidden/not show
+- in donations, once approved, remove from table
+- add a 'add category', in inventory tab
+- move search and medicine categories to inventory tab
+- move expiring medicines to expired medicines history
+- change expired medicines history to supplies history
+- update all "medicines" to 'supplies'
+- in inventory, add buttons to show expired, in stock, and low stock
+- add paginations in tabs; inventory, donate/dispose, donation requests, dispose history
+

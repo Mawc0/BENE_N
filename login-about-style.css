@@ -1,0 +1,280 @@
+/* General Styles */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+}
+
+/* Page Layout */
+body {
+    background: #f2f2f2;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.container {
+    display: flex;
+    width: 1200px;
+    background: #e3f4c7; /* Light green background */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+/* Left Section */
+.left-section {
+    width: 50%;
+    text-align: center;
+    padding: 40px;
+    position: relative;
+}
+
+/* Top Bar: Home Icon */
+.top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;         /* Center content */
+    gap: 20px;
+    width: 100%;
+    margin: 20px 0;
+}
+
+/* Home Icon */
+.home-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #fff;  /* White background */
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+}
+
+.home-icon img {
+    width: 30px;                     /* Adjust size */
+    height: 30px;
+    transition: transform 0.3s;
+}
+
+.home-icon:hover {
+    background-color: #e8f3f4;  /* Light green-blue tint on hover */
+    transform: scale(1.1);
+}
+
+/* Medicine Image */
+.medicine-img {
+    width: 100%;
+    max-width: 300px;
+    border-radius: 50%;
+    transition: transform 0.3s;
+}
+
+.medicine-img:hover {
+    transform: scale(1.05);
+}
+
+/* Text Styling */
+.left-section p {
+    margin-top: 20px;
+    font-size: 14px;
+    color: #333;
+}
+
+.left-section a {
+    color: #2f00ff;
+    text-decoration: none;
+}
+
+.left-section a:hover {
+    text-decoration: underline;
+}
+
+
+/* Right Section */
+.right-section {
+    width: 50%;
+    background: white;
+    padding: 60px 40px;
+    text-align: center;
+}
+
+/* Header Container: Website Name + Login Title */
+.header-container {
+    margin-bottom: 40px;        /* Add space below the header */
+}
+
+/* Website Name */
+.site-name {
+    font-size: 32px;            /* Larger, bold website name */
+    color: #555;
+    font-weight: bold;
+    letter-spacing: 1px;
+    margin-bottom: 15px;        /* Add spacing between site name and title */
+}
+
+/* Highlight Style for "MediCon" */
+.highlight {
+    color: #03d32c;             /* Green color for contrast */
+}
+
+/* Box Container for Login */
+.login-box {
+    background: #d2eac7;        /* light green background */
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);  /* Stronger shadow for box effect */
+    border-radius: 20px;
+    padding: 40px;
+    width: 100%;
+    max-width: 500px;           /* Limit the box width */
+    text-align: center;
+    transition: box-shadow 0.3s;
+}
+
+/* Hover effect for box */
+.login-box:hover {
+    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2);
+}
+
+/* Login Title */
+.login-title {
+    font-size: 28px;
+    color: #333;
+    line-height: 1.5;
+    margin-bottom: 40px;        /* Add more spacing below title */
+}
+
+/* BENE MediCon Title */
+h1 {
+    font-size: 24px;
+    color: #555;
+    font-weight: bold;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+}
+
+/* Form Title */
+h2 {
+    font-size: 32px;
+    margin: 20px 0;
+    color: #333;
+    line-height: 1.4;
+}
+
+/* Form Styles */
+form {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+/* Labels */
+label {
+    text-align: left;
+    margin: 12px 0 5px;
+    font-weight: bold;
+    font-size: 14px;
+    color: #555;
+}
+
+/* Input Fields */
+input {
+    width: 100%;
+    padding: 14px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #f0f0f0;
+    color: #333;
+    transition: box-shadow 0.3s;
+}
+
+input:focus {
+    outline: none;
+    box-shadow: 0 0 8px #007BFF;
+}
+
+/* Forgot Password Link */
+a {
+    display: block;
+    margin: 15px 0;
+    font-size: 14px;
+    color: #014f31;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+a:hover {
+    color: #4b9c3d;
+}
+
+/* Login Button */
+.btn {
+    width: 100%;
+    padding: 14px;
+    background: #f4e35f; /* Yellow button */
+    color: #333;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btn:hover {
+    background: #f0d400; /* Darker yellow on hover */
+}
+
+/* ✅ Pop-up message styling */
+.error-popup, .success-popup {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    padding: 15px 25px;
+    border-radius: 8px;
+    font-size: 16px;
+    color: #fff;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    animation: fadeOut 4s forwards;  /* Disappear after 4 seconds */
+}
+
+/* ✅ Error styling */
+.error-popup {
+    background-color: #e74c3c;  /* Red for errors */
+}
+
+/* ✅ Success styling */
+.success-popup {
+    background-color: #2ecc71;  /* Green for success */
+}
+
+/* ✅ Fade-out animation */
+@keyframes fadeOut {
+    0% {
+        opacity: 1;
+    }
+    80% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+        display: none;
+    }
+}
+
+
+/* Responsive Design */
+@media (max-width: 1000px) {
+    .container {
+        flex-direction: column;
+        height: auto;
+    }
+    .left-section, .right-section {
+        width: 100%;
+    }
+}

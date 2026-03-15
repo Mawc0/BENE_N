@@ -1,0 +1,33 @@
+Admin Account
+
+Username: medicon25
+Password: password123
+
+nicole
+nicole123
+
+frenz
+frenz123
+
+Marc
+marc123
+
+--------------------------------
+
+Staff Account
+Username: daniel
+Password: daniel123
+
+test123
+staff123
+
+tryonly
+password123
+
+dra_eliza
+staff123
+
+meung
+panda123
+
+other: all pw might be staff123 or password123
