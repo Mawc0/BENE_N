@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $update->close();
 
                 switch ($user['role']) {
-                    case 'admin': $redirect = 'admin_dashboard.php'; break;
+                    case 'admin': $redirect = '../user/admin/dashboard.php'; break;
                     default:      $redirect = 'staff_dashboard.php'; break;
                 }
                 header("Location: $redirect");
