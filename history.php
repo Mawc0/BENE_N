@@ -4,7 +4,18 @@
 // Database connection
 include "db.php";
 
-$categories = ['Antibiotic', 'Pain Reliever', 'Vitamins', 'Antiseptic', 'Injection', 'Other'];
+// Fetch dynamic categories from DB
+$categoryResult = $conn->query("SELECT name FROM categories ORDER BY id");
+$categories = [];
+if ($categoryResult && $categoryResult->num_rows > 0) {
+    while ($row = $categoryResult->fetch_assoc()) {
+        $categories[] = $row['name'];
+    }
+} else {
+    // Fallback if table is empty
+    $categories = ['Antibiotic', 'Pain Reliever', 'Vitamins', 'Antiseptic', 'Injection', 'Other'];
+}
+
 $action = $_GET['action'] ?? '';
 
 // === ACTION: Get count per category from expired_logs ===
@@ -26,8 +37,10 @@ if ($action === 'get_counts') {
 // === ACTION: Get expired medicines from a category in expired_logs ===
 if ($action === 'get_category') {
     $category = $_GET['category'] ?? '';
+
+    // Allow any category that exists in the system (not just hardcoded list)
     if (!in_array($category, $categories)) {
-        echo "<p style='color: red;'>Invalid category.</p>";
+        echo "<p style='color: red;'>Category not found.</p>";
         exit;
     }
 

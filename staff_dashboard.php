@@ -417,7 +417,7 @@ $formatted_date = $last_updated ? date('M d, Y g:i A', strtotime($last_updated))
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: #f4e35f;
+    background: #BC2605;
     color: white;
     display: flex;
     align-items: center;
@@ -428,7 +428,7 @@ $formatted_date = $last_updated ? date('M d, Y g:i A', strtotime($last_updated))
     transition: background 0.3s ease, color 0.3s ease;
 }
 .profile-icon:hover {
-    background: #073774;
+    background: #BC2605;
     color: white;
 }
 .profile-dropdown {
@@ -510,7 +510,7 @@ body {
     left: 0;
     width: 80px;
     height: 100%;
-    background-color: #f0d400;
+    background-color: #BC2605;
     color: white;
     padding-top: 20px;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -605,7 +605,7 @@ body {
 }
 .sidebar button:hover,
 .sidebar button.active {
-    background-color: #0a4c9e;
+    background-color: #BC2605;
 }
 /* Main Content */
 .main-content {
@@ -739,11 +739,12 @@ p {
     font-weight: bold;
     margin: 0;
 }
-.card-1 { background: linear-gradient(135deg, #1a73e8, #4285f4); }
-.card-2 { background: linear-gradient(135deg, #34a853, #66bb6a); }
-.card-3 { background: linear-gradient(135deg, #ea4335, #ef5350); }
-.card-4 { background: linear-gradient(135deg, #fbbc05, #ffb300); }
-.card-5 { background: linear-gradient(135deg, #fb8c00, #ff6d00); }
+.card-1 { background: linear-gradient(135deg, #6a11cb, #2575fc); }
+.card-2 { background: linear-gradient(135deg, #11998e, #38ef7d); }
+.card-3 { background: linear-gradient(135deg, #ff416c, #ff4b2b); }
+.card-4 { background: linear-gradient(135deg, #f7971e, #ffd200); }
+.card-5 { background: linear-gradient(135deg, #00c6ff, #0072ff); }
+
 /* Table */
 table {
     width: 100%;
@@ -776,12 +777,6 @@ table tr:hover {
 .warning td {
     color: #ef6c00 !important;
 }
-/* Add this new class for In Stock items */
-.in-stock {
-    background-color: #e8f5e9 !important; /* Light green background */
-    color: #2e7d32 !important; /* Dark green text */
-    font-weight: bold;
-}
 /* Stock Buttons */
 .stock-btn {
     padding: 6px 10px;
@@ -803,7 +798,7 @@ table tr:hover {
     position: fixed;
     top: 20px;
     right: 20px;
-    background-color: #ff9800;
+    background-color: #BC2605;
     color: white;
     padding: 12px;
     border-radius: 50%;
@@ -1197,23 +1192,6 @@ Cancel
 
 <!-- Main Content -->
 <div class="main-content" id="main-content">
-<!-- Guest Mode Banner -->
-<?php if ($isGuest): ?>
-<div style="
-    background: #fff9c4;
-    color: #e65100;
-    padding: 10px 15px;
-    text-align: center;
-    font-weight: 600;
-    border-bottom: 1px solid #ffd54f;
-    margin-bottom: 20px;
-    border-radius: 0 0 8px 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-">
-    🔒 Guest Mode – View Only
-</div>
-<?php endif; ?>
-
 <?php if ($forcePasswordChange || $forceSecuritySetup): ?>
 <div class="password-alert" id="securityNotice">
 <i class="fas fa-exclamation-triangle"></i>
@@ -1389,7 +1367,7 @@ new Chart(document.getElementById('stockLevelsChart'), {
                 <?php echo $normalStock; ?>,
                 <?php echo $highStock; ?>
             ],
-            backgroundColor: ['#e85b4eff', '#54bcf4ff', '#53e9b0ff']
+            backgroundColor: ['#ea4335', '#fbbc05', '#34a853']
         }]
     },
     options: {
@@ -1531,7 +1509,7 @@ new Chart(document.getElementById('expiryTrendChart'), {
                             $today = new DateTime();
                             $isExpired = $expiryDate < $today;
                             $status = $isExpired ? '🔴 Expired' : (($row['quantity'] <= 20 && !$isExpired) ? '⚠️ Low Stock' : '✅ In Stock');
-                            $rowClass = $isExpired ? 'expiring-soon' : (($row['quantity'] <= 20 && !$isExpired) ? 'warning' : 'in-stock');
+                            $rowClass = $isExpired ? 'expiring-soon' : (($row['quantity'] <= 20 && !$isExpired) ? 'warning' : '');
                         ?>
                         <tr class="<?= $rowClass ?>" style="border-bottom: 1px solid #eee;">
                             <td style="padding: 8px;"><img src="uploads/medicines/<?php echo htmlspecialchars($row['image']); ?>" width="40" alt="Medicine"></td>
@@ -2098,7 +2076,8 @@ alt="Profile" class="profile-thumb">
 <img src="uploads/avatars/<?php echo htmlspecialchars($_SESSION['profile_pic'] ?? 'default.jpg'); ?>"
 alt="Profile" class="profile-thumb-large">
 <p class="profile-name"><?php echo htmlspecialchars($_SESSION['username']); ?></p>
-<p class="profile-role"><?= $isGuest ? 'Guest' : 'Staff Member'; ?></p></div>
+<p class="profile-role">Staff Member</p>
+</div>
 <?php if (!$isGuest): ?>
 <a href="edit_profile.php">
 <i class="fas fa-user-edit"></i> Edit Profile
@@ -2246,10 +2225,10 @@ style="background:#1a73e8;color:white;padding:10px;width:100%;border:none;border
 <div class="chat-head" id="chatHead"><i class="fas fa-robot"></i></div>
 <div class="chat-container" id="chatContainer">
 <div class="chat-header">
-<i class="fas fa-clinic-medical"></i> BENE Assist
+<i class="fas fa-clinic-medical"></i> MedBot
 <span class="chat-close" id="chatClose">&times;</span>
 </div>
-<div class="disclaimer">Powered by Groq, Model: llama-3.1-8b-instant</div>
+<div class="disclaimer">Powered by BENE MediCon</div>
 <div id="chatbox">
 <div class="message bot">
 <img src="https://ui-avatars.com/api/?name=MedBot&background=007BFF&color=fff" class="avatar" alt="Bot">

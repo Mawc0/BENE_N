@@ -477,7 +477,7 @@ checkSchedules();
       width: 40px;
       height: 40px;
       border-radius: 50%;
-      background: #f4e35f;
+      background: #BC2605;
       color: white;
       display: flex;
       align-items: center;
@@ -488,7 +488,7 @@ checkSchedules();
       transition: background 0.3s ease, color 0.3s ease;
     }
     .profile-icon:hover {
-      background: #073774;
+      background: #BC2605;
       color: white;
     }
     .profile-dropdown {
@@ -545,7 +545,7 @@ checkSchedules();
       position: relative;
       margin-right: 12px;
       font-size: 20px;
-      color: #073774;
+      color: #BC2605;
       text-decoration: none;
       display: inline-flex;
       align-items: center;
@@ -561,13 +561,13 @@ checkSchedules();
       font-size: 0.75em;
       font-weight: 600;
     }
-    .notif-icon:hover { color: #1a73e8; }
+    .notif-icon:hover { color: #BC2605; }
     * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI','Roboto',sans-serif; }
     body { background:#f5f7fa; min-height:100vh; }
     .sidebar {
       position: fixed; top: 0; left: 0;
       width: 80px; height: 100%;
-      background: #BC2605;
+      background: #BC2605;;
       color: #fff;
       padding-top: 20px;
       transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
