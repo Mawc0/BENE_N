@@ -265,7 +265,12 @@ if ($page === 'schedules') {
         $stmt = $conn->prepare("SELECT * FROM admin_schedules WHERE id = ?"); $stmt->bind_param("i", $id); $stmt->execute();
         $editSchedule = $stmt->get_result()->fetch_assoc();
     }
-    $schedules = $conn->query("SELECT * FROM admin_schedules WHERE admin_id = (SELECT id FROM users WHERE username = '{$_SESSION['username']}') ORDER BY next_check ASC");
+    $schedules = $conn->query("
+        SELECT s.*, u.username AS created_by
+        FROM admin_schedules s
+        LEFT JOIN users u ON s.admin_id = u.id
+        ORDER BY s.next_check ASC
+    ");
 }
 
 function checkSchedules() {
@@ -1436,11 +1441,19 @@ checkSchedules();
   <div class="table-wrap">
     <div class="table-wrap-header">Active Schedules</div>
     <table>
-      <tr><th>Name</th><th>Type</th><th>Time</th><th>Next Check</th><th>Status</th><th>Action</th></tr>
+      <tr><th>Name</th><th>Created By</th><th>Type</th><th>Time</th><th>Next Check</th><th>Status</th><th>Action</th></tr>
       <?php if ($schedules && $schedules->num_rows > 0): ?>
         <?php while($sched = $schedules->fetch_assoc()): ?>
         <tr>
           <td><?= htmlspecialchars($sched['schedule_name']) ?></td>
+          <td>
+            <span style="display:inline-flex;align-items:center;gap:5px;">
+              <span style="width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,var(--red-light),var(--red-deeper));display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:0.65rem;font-weight:600;flex-shrink:0;">
+                <?= strtoupper(substr($sched['created_by'] ?? 'A', 0, 1)) ?>
+              </span>
+              <?= htmlspecialchars($sched['created_by'] ?? 'Unknown') ?>
+            </span>
+          </td>
           <td><?= ucfirst($sched['schedule_type']) ?></td>
           <td><?= $sched['schedule_time'] ?></td>
           <td><?= $sched['next_check'] ?></td>
