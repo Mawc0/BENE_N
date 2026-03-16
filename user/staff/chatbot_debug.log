@@ -361,3 +361,35 @@ Stack trace:
 [04-Nov-2025 15:26:21 UTC] Groq HTTP Code: 200
 [04-Nov-2025 15:26:21 UTC] Groq Response Body: {"id":"chatcmpl-ae137ce3-cd76-464c-af92-2ad5df43331e","object":"chat.completion","created":1762269981,"model":"llama-3.1-8b-instant","choices":[{"index":0,"message":{"role":"assistant","content":"I don't have that information."},"logprobs":null,"finish_reason":"stop"}],"usage":{"queue_time":0.054126735,"prompt_tokens":253,"prompt_time":0.01385973,"completion_tokens":8,"completion_time":0.003890565,"total_tokens":261,"total_time":0.017750295},"usage_breakdown":null,"system_fingerprint":"fp_7b3cfae3af","x_groq":{"id":"req_01k97qkv1yeweajnearbmb6mwc"},"service_tier":"on_demand"}
 
+[16-Mar-2026 08:14:20 Europe/Berlin] PHP Warning:  include(db.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 19
+[16-Mar-2026 08:14:20 Europe/Berlin] PHP Warning:  include(): Failed opening 'db.php' for inclusion (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 19
+[16-Mar-2026 08:14:20 Europe/Berlin] PHP Warning:  Undefined variable $conn in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 41
+[16-Mar-2026 08:14:20 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function query() on null in C:\xampp\htdocs\BENE\user\staff\chatbot.php:32
+Stack trace:
+#0 C:\xampp\htdocs\BENE\user\staff\chatbot.php(41): findMedicine('whats the weath...', NULL)
+#1 {main}
+  thrown in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 32
+[16-Mar-2026 08:24:24 Europe/Berlin] PHP Warning:  include(../db.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 19
+[16-Mar-2026 08:24:24 Europe/Berlin] PHP Warning:  include(): Failed opening '../db.php' for inclusion (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 19
+[16-Mar-2026 08:24:24 Europe/Berlin] PHP Warning:  Undefined variable $conn in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 41
+[16-Mar-2026 08:24:24 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function query() on null in C:\xampp\htdocs\BENE\user\staff\chatbot.php:32
+Stack trace:
+#0 C:\xampp\htdocs\BENE\user\staff\chatbot.php(41): findMedicine('hey', NULL)
+#1 {main}
+  thrown in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 32
+[16-Mar-2026 08:33:18 Europe/Berlin] PHP Warning:  include(db.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 19
+[16-Mar-2026 08:33:18 Europe/Berlin] PHP Warning:  include(): Failed opening 'db.php' for inclusion (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 19
+[16-Mar-2026 08:33:18 Europe/Berlin] PHP Warning:  Undefined variable $conn in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 41
+[16-Mar-2026 08:33:18 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function query() on null in C:\xampp\htdocs\BENE\user\staff\chatbot.php:32
+Stack trace:
+#0 C:\xampp\htdocs\BENE\user\staff\chatbot.php(41): findMedicine('hi', NULL)
+#1 {main}
+  thrown in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 32
+[16-Mar-2026 08:33:25 Europe/Berlin] PHP Warning:  include(db.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 19
+[16-Mar-2026 08:33:25 Europe/Berlin] PHP Warning:  include(): Failed opening 'db.php' for inclusion (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 19
+[16-Mar-2026 08:33:25 Europe/Berlin] PHP Warning:  Undefined variable $conn in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 41
+[16-Mar-2026 08:33:25 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function query() on null in C:\xampp\htdocs\BENE\user\staff\chatbot.php:32
+Stack trace:
+#0 C:\xampp\htdocs\BENE\user\staff\chatbot.php(41): findMedicine('whats the weath...', NULL)
+#1 {main}
+  thrown in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 32

@@ -1517,10 +1517,10 @@ style="background:#1a73e8;color:white;padding:10px;width:100%;border:none;border
 <div class="chat-head" id="chatHead"><i class="fas fa-robot"></i></div>
 <div class="chat-container" id="chatContainer">
 <div class="chat-header">
-<i class="fas fa-clinic-medical"></i> MedBot
+<i class="fas fa-clinic-medical"></i> BENE Assist
 <span class="chat-close" id="chatClose">&times;</span>
 </div>
-<div class="disclaimer">Powered by BENE MediCon</div>
+<div class="disclaimer">Powered by Groq, Model: llama-3.1-8b-instant</div>
 <div id="chatbox">
 <div class="message bot">
 <img src="https://ui-avatars.com/api/?name=MedBot&background=007BFF&color=fff" class="avatar" alt="Bot">
