@@ -1171,7 +1171,7 @@ checkSchedules();
   </div>
 
 <?php elseif ($page === 'dashboard'): ?>
-  <h1 class="page-heading">Dashboard</h1>
+  <h1 class="page-heading">Admin Dashboard</h1>
   <div class="cards">
     <div class="stat-card stat-card-1">
       <div class="stat-icon"><i class="fas fa-users"></i></div>
