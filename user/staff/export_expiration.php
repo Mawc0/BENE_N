@@ -7,7 +7,7 @@ ini_set('display_errors', 1);
 session_start();
 
 // Database connection
-include "db.php";
+include "../../db.php";
 
 // Set timezone
 date_default_timezone_set('Asia/Manila');
