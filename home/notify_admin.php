@@ -1,6 +1,6 @@
 <?php
 session_start();
-include('db.php');
+include('../db.php');
 
 $message = "A user attempted password reset but needs admin assistance.";
 

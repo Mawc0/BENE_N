@@ -1,6 +1,6 @@
 <?php
 session_start();
-include('db.php');
+include('../../db.php');
 
 if (isset($_GET['id'])) {
     $id = (int)$_GET['id'];
@@ -9,5 +9,5 @@ if (isset($_GET['id'])) {
     $stmt->execute();
 }
 
-header("Location: admin_dashboard.php?page=notifications");
+header("Location: dashboard.php?page=notifications");
 exit;
