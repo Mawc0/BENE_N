@@ -2,7 +2,7 @@
 session_start();
 date_default_timezone_set('Asia/Manila');
 // Database connection
-include "db.php";
+include "../../db.php";
 
 $userId = $_SESSION['user_id'] ?? null;
 if ($userId) {
@@ -397,6 +397,13 @@ while ($row = $result_low->fetch_assoc()) {
 $last_updated_query = $conn->query("SELECT MAX(last_updated) as latest_update FROM medicines");
 $last_updated = $last_updated_query->fetch_assoc()['latest_update'];
 $formatted_date = $last_updated ? date('M d, Y g:i A', strtotime($last_updated)) : 'No updates';
+
+// Unread notifications count for current user
+$unreadCount = 0;
+if ($userId) {
+    $unreadRes = $conn->query("SELECT COUNT(*) AS c FROM notifications WHERE user_id = $userId AND is_read = 0");
+    if ($unreadRes) $unreadCount = (int)$unreadRes->fetch_assoc()['c'];
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -405,218 +412,286 @@ $formatted_date = $last_updated ? date('M d, Y g:i A', strtotime($last_updated))
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Staff Dashboard | BENE MediCon</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-/* Profile Menu */
-.profile-menu {
-    position: fixed;
-    top: 20px;
-    right: 80px;
-    z-index: 1000;
+/* ── RESET & TOKENS ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --red:        #9b1c1c;
+  --red-dark:   #7b1010;
+  --red-deeper: #5c0a0a;
+  --red-light:  #c62828;
+  --gold:       #c9a84c;
+  --gold-light: #e8c96a;
+  --bg:         #f5f6fa;
+  --surface:    #ffffff;
+  --text:       #1a1a2e;
+  --text-muted: #6b7280;
+  --border:     #e5e7eb;
+  --sidebar-w:  72px;
+  --sidebar-exp: 240px;
+  --topbar-h:   62px;
 }
-.profile-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: #BC2605;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-size: 20px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    transition: background 0.3s ease, color 0.3s ease;
-}
-.profile-icon:hover {
-    background: #BC2605;
-    color: white;
-}
-.profile-dropdown {
-    position: absolute;
-    top: 50px;
-    right: 0;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    min-width: 200px;
-    display: none;
-    animation: slideDown 0.3s ease;
-}
-@keyframes slideDown {
-    from { transform: translateY(-10px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
-.profile-dropdown.show {
-    display: block;
-}
-.profile-header {
-    padding: 15px;
-    border-bottom: 1px solid #eee;
-    text-align: center;
-}
-.profile-thumb {
-    width: 35px;
-    height: 35px;
-    border-radius: 50%;
-    object-fit: cover;
-}
-.profile-thumb-large {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    margin-bottom: 10px;
-    object-fit: cover;
-}
-.profile-name {
-    font-weight: 600;
-    color: #333;
-    margin: 0;
-}
-.profile-role {
-    color: #666;
-    font-size: 0.9em;
-    margin: 5px 0 0;
-}
-.profile-dropdown a {
-    display: flex;
-    align-items: center;
-    padding: 12px 15px;
-    color: #333;
-    text-decoration: none;
-    transition: background 0.2s;
-}
-.profile-dropdown a:hover {
-    background: #f5f5f5;
-}
-.profile-dropdown i {
-    margin-right: 10px;
-    width: 20px;
-    color: #666;
-}
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Segoe UI', 'Roboto', sans-serif;
-}
+
 body {
-    min-height: 100vh;
-    background-color: #f5f7fa;
+  font-family: 'DM Sans', 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
 }
-/* Sidebar */
+
+/* ══ SIDEBAR ══ */
 .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 80px;
-    height: 100%;
-    background-color: #BC2605;
-    color: white;
-    padding-top: 20px;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 1000;
-    overflow: hidden;
-    box-shadow: 3px 0 15px rgba(0,0,0,0.1);
+  position: fixed;
+  top: 0; left: 0;
+  width: var(--sidebar-w);
+  height: 100%;
+  background: linear-gradient(175deg, var(--red-light) 0%, var(--red-deeper) 100%);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.35s cubic-bezier(0.4,0,0.2,1);
+  overflow: hidden;
+  z-index: 200;
+  box-shadow: 3px 0 20px rgba(0,0,0,0.18);
 }
-.sidebar.expanded {
-    width: 250px;
+.sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--gold), var(--gold-light), var(--gold));
 }
-/* Header: Hamburger + Title */
+.sidebar.expanded { width: var(--sidebar-exp); }
+
 .sidebar-header {
-    display: flex;
-    align-items: center;
-    padding: 0 15px 20px 15px;
+  display: flex;
+  align-items: center;
+  padding: 18px 16px 14px;
+  gap: 12px;
+  min-height: var(--topbar-h);
 }
+
 .hamburger-btn {
-    width: 40px;
-    height: 40px;
-    background-color: rgba(255, 255, 255, 0.15);
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.3s ease;
+  width: 38px; height: 38px;
+  background: rgba(255,255,255,0.12);
+  border: none; border-radius: 8px;
+  cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
 }
-.hamburger-btn:hover {
-    background-color: rgba(255, 255, 255, 0.25);
-}
-.hamburger-svg {
-    width: 22px;
-    height: 22px;
-    position: relative;
-}
+.hamburger-btn:hover { background: rgba(255,255,255,0.22); }
+
+.hamburger-svg { width: 20px; height: 20px; }
 .hamburger-svg line {
-    stroke: white;
-    stroke-width: 2.5;
-    stroke-linecap: round;
-    transition: transform 0.4s ease, opacity 0.3s ease;
-    transform-origin: center;
+  stroke: white; stroke-width: 2.5; stroke-linecap: round;
+  transition: transform 0.35s ease, opacity 0.25s ease;
+  transform-origin: center;
 }
-.line-1 { y1: 6; y2: 6; x1: 4; x2: 20; }
+.line-1 { y1: 6;  y2: 6;  x1: 4; x2: 20; }
 .line-2 { y1: 12; y2: 12; x1: 4; x2: 20; }
 .line-3 { y1: 18; y2: 18; x1: 4; x2: 20; }
-.sidebar.expanded .line-1 {
-    transform: rotate(45deg) translate(3px, 3px);
+.sidebar.expanded .line-1 { transform: rotate(45deg) translate(3px,3px); }
+.sidebar.expanded .line-2 { opacity: 0; }
+.sidebar.expanded .line-3 { transform: rotate(-45deg) translate(4px,-4px); }
+
+.sidebar-brand {
+  font-family: 'EB Garamond', serif;
+  font-size: 1.08rem; font-weight: 600;
+  color: #fff; white-space: nowrap;
+  opacity: 0; transition: opacity 0.2s 0.1s;
 }
-.sidebar.expanded .line-2 {
-    opacity: 0;
+.sidebar-brand span { color: var(--gold-light); }
+.sidebar.expanded .sidebar-brand { opacity: 1; }
+
+/* section labels */
+.nav-section-label {
+  font-size: 0.6rem; font-weight: 600;
+  letter-spacing: 0.13em; text-transform: uppercase;
+  color: rgba(255,255,255,0.32);
+  padding: 10px 17px 3px;
+  white-space: nowrap; overflow: hidden;
+  opacity: 0; transition: opacity 0.2s;
+  pointer-events: none;
 }
-.sidebar.expanded .line-3 {
-    transform: rotate(-45deg) translate(4px, -4px);
+.sidebar.expanded .nav-section-label { opacity: 1; }
+
+/* nav items */
+.sidebar nav { flex: 1; padding: 4px 0; overflow: hidden; }
+
+.nav-item {
+  display: flex; align-items: center; gap: 13px;
+  padding: 10px 17px;
+  width: 100%; border: none; background: none;
+  color: rgba(255,255,255,0.72);
+  font-family: 'DM Sans', 'Segoe UI', sans-serif;
+  font-size: 0.87rem; font-weight: 500;
+  cursor: pointer; text-decoration: none;
+  white-space: nowrap; text-align: left;
+  transition: background 0.2s, color 0.2s;
+  border-radius: 0 20px 20px 0;
+  margin-right: 10px;
+  position: relative;
 }
-.sidebar h2 {
-    font-size: 1.3rem;
-    margin-left: 15px;
-    white-space: nowrap;
-    opacity: 0;
-    transition: opacity 0.3s 0.1s ease;
+.nav-item i { font-size: 1rem; min-width: 22px; text-align: center; flex-shrink: 0; }
+.nav-item span { opacity: 0; transition: opacity 0.2s 0.05s; }
+.sidebar.expanded .nav-item span { opacity: 1; }
+.nav-item:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.nav-item.active { background: rgba(255,255,255,0.18); color: #fff; }
+.nav-item.active::before {
+  content: '';
+  position: absolute; left: 0;
+  width: 3px; height: 26px;
+  background: var(--gold); border-radius: 0 3px 3px 0;
 }
-.sidebar.expanded h2 {
-    opacity: 1;
+
+.sidebar-footer {
+  padding: 8px 0 14px;
+  border-top: 1px solid rgba(255,255,255,0.1);
 }
-/* Menu Buttons */
-.sidebar button {
-    display: flex;
-    align-items: center;
-    padding: 15px 20px;
-    color: white;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 1rem;
-    width: 100%;
-    text-align: left;
-    border-radius: 0 20px 20px 0;
+
+/* ══ TOPBAR ══ */
+.topbar {
+  position: fixed;
+  top: 0; left: var(--sidebar-w); right: 0;
+  height: var(--topbar-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  z-index: 100;
+  transition: left 0.35s cubic-bezier(0.4,0,0.2,1);
+  box-shadow: 0 1px 8px rgba(0,0,0,0.06);
 }
-.sidebar button i {
-    font-size: 1.3rem;
-    min-width: 30px;
-    text-align: center;
+.sidebar.expanded ~ .topbar { left: var(--sidebar-exp); }
+
+.topbar-title {
+  font-family: 'EB Garamond', serif;
+  font-size: 1.25rem; font-weight: 600;
+  color: var(--red-deeper);
 }
-.sidebar button span {
-    opacity: 0;
-    transition: opacity 0.3s 0.1s ease;
-    margin-left: 15px;
+
+.topbar-right { display: flex; align-items: center; gap: 6px; }
+
+.topbar-btn {
+  position: relative;
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  background: transparent;
+  border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); font-size: 1rem;
+  cursor: pointer; text-decoration: none;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
-.sidebar.expanded button span {
-    opacity: 1;
+.topbar-btn:hover { background: #fdf4f4; border-color: #f0d8d8; color: var(--red); }
+
+.topbar-badge {
+  position: absolute; top: -5px; right: -5px;
+  background: var(--red-light); color: #fff;
+  border-radius: 50%; width: 18px; height: 18px;
+  font-size: 0.6rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--surface);
 }
-.sidebar button:hover,
-.sidebar button.active {
-    background-color: #BC2605;
+
+.topbar-divider { width: 1px; height: 24px; background: var(--border); margin: 0 5px; }
+
+/* profile button */
+.profile-menu { position: relative; }
+
+.profile-btn {
+  display: flex; align-items: center; gap: 9px;
+  padding: 5px 10px 5px 5px;
+  border: 1.5px solid var(--border); border-radius: 10px;
+  background: transparent; cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: background 0.2s, border-color 0.2s;
 }
-/* Main Content */
+.profile-btn:hover { background: #fdf4f4; border-color: #f0d8d8; }
+
+.profile-avatar {
+  width: 30px; height: 30px; border-radius: 8px;
+  object-fit: cover;
+  border: 2px solid rgba(201,168,76,0.4);
+  flex-shrink: 0;
+}
+.profile-avatar-initials {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--red-light), var(--red-deeper));
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 0.82rem; font-weight: 600;
+  border: 2px solid rgba(201,168,76,0.4); flex-shrink: 0;
+}
+
+.profile-info { text-align: left; }
+.profile-info .p-name { font-size: 0.8rem; font-weight: 600; color: var(--text); line-height: 1.2; }
+.profile-info .p-role { font-size: 0.68rem; color: var(--text-muted); }
+.profile-chevron { font-size: 0.68rem; color: var(--text-muted); margin-left: 2px; }
+
+/* dropdown */
+.profile-dropdown {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  min-width: 210px; display: none; overflow: hidden;
+  animation: dropDown 0.2s ease; z-index: 300;
+}
+@keyframes dropDown {
+  from { transform: translateY(-8px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.profile-dropdown.show { display: block; }
+
+.dropdown-header {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.dropdown-header img {
+  width: 38px; height: 38px; border-radius: 9px; object-fit: cover;
+  border: 2px solid rgba(201,168,76,0.35);
+}
+.dropdown-header .dh-initials {
+  width: 38px; height: 38px; border-radius: 9px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--red-light), var(--red-deeper));
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 1rem; font-weight: 600;
+  border: 2px solid rgba(201,168,76,0.35);
+}
+.dropdown-header .dh-name { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+.dropdown-header .dh-role { font-size: 0.72rem; color: var(--text-muted); margin-top: 1px; }
+
+.dropdown-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; font-size: 0.83rem; color: var(--text);
+  text-decoration: none; background: none; border: none;
+  width: 100%; cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: background 0.15s;
+}
+.dropdown-item i { width: 16px; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
+.dropdown-item:hover { background: #f9fafb; }
+.dropdown-item.danger { color: var(--red); }
+.dropdown-item.danger i { color: var(--red); }
+.dropdown-item.danger:hover { background: #fdf4f4; }
+
+/* ══ MAIN CONTENT ══ */
 .main-content {
-    margin-left: 80px;
-    padding: 30px;
-    transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    min-height: 100vh;
+  margin-left: var(--sidebar-w);
+  margin-top: var(--topbar-h);
+  padding: 2rem;
+  transition: margin-left 0.35s cubic-bezier(0.4,0,0.2,1);
+  min-height: calc(100vh - var(--topbar-h));
 }
-.sidebar.expanded ~ .main-content {
-    margin-left: 250px;
-}
+.sidebar.expanded ~ .topbar ~ .main-content { margin-left: var(--sidebar-exp); }
+
+/* ══ NOTIFICATION BELL (old floating bell - replaced, keep modal trigger) ══ */
+.notification-bell { display: none; }
+
 /* Search Bar */
 #search-container {
     display: none;
@@ -793,34 +868,6 @@ table tr:hover {
 .use-btn {
     background: #f44336;
 }
-/* Notification Bell */
-.notification-bell {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background-color: #BC2605;
-    color: white;
-    padding: 12px;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 20px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    z-index: 1100;
-}
-.notification-count {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background-color: #d32f2f;
-    color: white;
-    font-size: 12px;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
 /* Modal */
 /* Ensure modals are full-screen and ignore sidebar */
 .modal {
@@ -873,11 +920,6 @@ table tr:hover {
     border: 1px solid #ffeeba;
     border-radius: 8px;
     margin: 20px 0;
-    margin-left: 80px;
-    transition: margin-left 0.4s;
-}
-.sidebar.expanded ~ .main-content .password-note {
-    margin-left: 250px;
 }
 
 /* =============== 🎁 DONATION STYLES =============== */
@@ -1119,75 +1161,94 @@ table tr:hover {
 </style>
 </head>
 <body>
-<div id="logoutModal" class="modal">
-<div class="modal-content" style="max-width: 400px;">
-<div class="modal-header">
-<h3><i class="fas fa-sign-out-alt"></i> Logout Confirmation</h3>
-<span class="modal-close" onclick="closeLogoutModal()">&times;</span>
+<div id="logoutModal" class="modal" style="display:none;">
+<div class="modal-content" style="max-width: 400px; border-radius: 16px; padding: 1.6rem; box-shadow: 0 20px 60px rgba(0,0,0,0.25);">
+<div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid #e5e7eb;">
+<h3 style="font-family:'EB Garamond',serif;font-size:1.15rem;color:#5c0a0a;"><i class="fas fa-sign-out-alt" style="color:#c62828;margin-right:8px;"></i> Confirm Logout</h3>
+<button onclick="closeLogoutModal()" style="width:28px;height:28px;border-radius:6px;background:#f3f4f6;border:none;cursor:pointer;font-size:1rem;color:#6b7280;">&times;</button>
 </div>
-<div class="modal-body" style="text-align: center; padding: 20px;">
-<p style="font-size: 1.1em; margin-bottom: 20px;">Are you sure you want to logout?</p>
-<button onclick="window.location.href='logout.php'"
-style="background: #d32f2f; color: white; padding: 10px 20px; border: none; border-radius: 5px; margin-right: 10px; cursor: pointer;">
-Yes, Logout
-</button>
-<button onclick="closeLogoutModal()"
-style="background: #757575; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">
-Cancel
-</button>
+<p style="font-size:0.88rem;color:#374151;margin-bottom:1.2rem;">Are you sure you want to log out?</p>
+<div style="display:flex;gap:8px;justify-content:flex-end;">
+<button onclick="closeLogoutModal()" style="height:36px;padding:0 14px;background:#6b7280;color:#fff;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.82rem;font-weight:500;cursor:pointer;">Cancel</button>
+<button onclick="window.location.href='../../logout.php'" style="height:36px;padding:0 14px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.82rem;font-weight:500;cursor:pointer;"><i class="fas fa-sign-out-alt"></i> Yes, Logout</button>
 </div>
 </div>
 </div>
-<!-- Sidebar -->
+<!-- ══ SIDEBAR ══ -->
 <div class="sidebar" id="sidebar">
-<div class="sidebar-header">
-<button class="hamburger-btn" id="hamburger">
-<svg class="hamburger-svg" viewBox="0 0 24 24">
-<line class="line-1" x1="4" y1="6" x2="20" y2="6" />
-<line class="line-2" x1="4" y1="12" x2="20" y2="12" />
-<line class="line-3" x1="4" y1="18" x2="20" y2="18" />
-</svg>
-</button>
-<h2>BENE MediCon</h2>
+  <div class="sidebar-header">
+    <button class="hamburger-btn" id="hamburger">
+      <svg class="hamburger-svg" viewBox="0 0 24 24">
+        <line class="line-1" x1="4" y1="6"  x2="20" y2="6"/>
+        <line class="line-2" x1="4" y1="12" x2="20" y2="12"/>
+        <line class="line-3" x1="4" y1="18" x2="20" y2="18"/>
+      </svg>
+    </button>
+    <span class="sidebar-brand">BENE <span>MediCon</span></span>
+  </div>
+  <nav>
+    <div class="nav-section-label">Overview</div>
+    <button class="nav-item active" id="btn-dashboard"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></button>
+
+    <div class="nav-section-label">Inventory</div>
+    <button class="nav-item" id="btn-inventory"><i class="fas fa-boxes"></i><span>Inventory</span></button>
+    <button class="nav-item" id="btn-expiration"><i class="fas fa-calendar-times"></i><span>Expiration</span></button>
+
+    <?php if (!$isGuest): ?>
+    <div class="nav-section-label">Requests</div>
+    <button class="nav-item" id="btn-donate"><i class="fas fa-hand-holding-medical"></i><span>Donate or Dispose</span></button>
+    <button class="nav-item" id="btn-donation-history"><i class="fas fa-clipboard-list"></i><span>Donation Requests</span></button>
+    <button class="nav-item" id="btn-disposal-history"><i class="fas fa-trash-alt"></i><span>Disposal Requests</span></button>
+    <?php endif; ?>
+  </nav>
+  <div class="sidebar-footer">
+    <button class="nav-item" onclick="openLogoutModal()" style="color:rgba(255,255,255,0.6);"><i class="fas fa-sign-out-alt"></i><span>Logout</span></button>
+  </div>
 </div>
-<button id="btn-dashboard" class="active">
-<i class="fas fa-tachometer-alt"></i>
-<span>Dashboard</span>
-</button>
 
-
-
-<button id="btn-inventory">
-<i class="fas fa-boxes"></i>
-<span>Inventory</span>
-</button>
-
-<?php if (!$isGuest): ?>
-<button id="btn-expiration">
-<i class="fas fa-calendar-times"></i>
-<span>Expiration</span>
-</button>
-
-<!-- =============== 🎁 DONATION & DISPOSAL BUTTONS =============== -->
-<button id="btn-donate">
-  <i class="fas fa-hand-holding-medical"></i>
-  <span>Donate or Dispose</span>
-</button>
-<button id="btn-donation-history">
-  <i class="fas fa-clipboard-list"></i>
-  <span>Donation Requests</span>
-</button>
-<button id="btn-disposal-history">
-  <i class="fas fa-trash-alt"></i>
-  <span>Disposal Requests</span>
-</button>
-<?php else: ?>
-<!-- For guests, show only Expiration (read-only) -->
-<button id="btn-expiration">
-  <i class="fas fa-calendar-times"></i>
-  <span>Expiration</span>
-</button>
-<?php endif; ?>
+<!-- ══ TOPBAR ══ -->
+<div class="topbar" id="topbar">
+  <span class="topbar-title" id="topbar-title">Dashboard</span>
+  <div class="topbar-right">
+    <button class="topbar-btn" onclick="openModal()" title="Expiring medicines alert">
+      <i class="fas fa-bell"></i>
+      <?php if ($expired_count > 0): ?>
+        <span class="topbar-badge"><?= $expired_count ?></span>
+      <?php endif; ?>
+    </button>
+    <div class="topbar-divider"></div>
+    <div class="profile-menu">
+      <button class="profile-btn" onclick="toggleProfileMenu()" type="button">
+        <img src="uploads/avatars/<?= htmlspecialchars($_SESSION['profile_pic'] ?? 'default.jpg') ?>"
+             alt="Profile" class="profile-avatar"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <div class="profile-avatar-initials" style="display:none;">
+          <?= strtoupper(substr($_SESSION['username'] ?? 'S', 0, 1)) ?>
+        </div>
+        <div class="profile-info">
+          <div class="p-name"><?= htmlspecialchars($_SESSION['username'] ?? 'Staff') ?></div>
+          <div class="p-role"><?= $isGuest ? 'Guest' : 'Staff Member' ?></div>
+        </div>
+        <i class="fas fa-chevron-down profile-chevron"></i>
+      </button>
+      <div class="profile-dropdown" id="profileDropdown">
+        <div class="dropdown-header">
+          <img src="uploads/avatars/<?= htmlspecialchars($_SESSION['profile_pic'] ?? 'default.jpg') ?>"
+               alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+          <div class="dh-initials" style="display:none;"><?= strtoupper(substr($_SESSION['username'] ?? 'S', 0, 1)) ?></div>
+          <div>
+            <div class="dh-name"><?= htmlspecialchars($_SESSION['username'] ?? 'Staff') ?></div>
+            <div class="dh-role"><?= $isGuest ? 'Guest' : 'Staff Member' ?> &mdash; BENE MediCon</div>
+          </div>
+        </div>
+        <?php if (!$isGuest): ?>
+        <a href="../edit_profile.php" class="dropdown-item"><i class="fas fa-user-edit"></i> Edit Profile</a>
+        <a href="../change_password.php" class="dropdown-item"><i class="fas fa-key"></i> Change Password</a>
+        <?php endif; ?>
+        <button onclick="openLogoutModal()" class="dropdown-item danger"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Main Content -->
@@ -2066,40 +2127,6 @@ You haven't submitted any donation requests yet.
 </div>
 
 <!-- Profile Menu -->
-<div class="profile-menu">
-<div class="profile-icon" onclick="toggleProfileMenu()">
-<img src="uploads/avatars/<?php echo htmlspecialchars($_SESSION['profile_pic'] ?? 'default.jpg'); ?>"
-alt="Profile" class="profile-thumb">
-</div>
-<div class="profile-dropdown" id="profileDropdown">
-<div class="profile-header">
-<img src="uploads/avatars/<?php echo htmlspecialchars($_SESSION['profile_pic'] ?? 'default.jpg'); ?>"
-alt="Profile" class="profile-thumb-large">
-<p class="profile-name"><?php echo htmlspecialchars($_SESSION['username']); ?></p>
-<p class="profile-role">Staff Member</p>
-</div>
-<?php if (!$isGuest): ?>
-<a href="edit_profile.php">
-<i class="fas fa-user-edit"></i> Edit Profile
-</a>
-<a href="change_password.php">
-<i class="fas fa-key"></i> Change Password
-</a>
-<?php endif; ?>
-<a href="#" onclick="openLogoutModal()">
-<i class="fas fa-sign-out-alt"></i> Logout
-</a>
-</div>
-</div>
-
-<!-- Notification Bell -->
-<div class="notification-bell" id="bell" onclick="openModal()" title="Click to view expiring medicines">
-<i class="fa fa-bell"></i>
-<?php if ($expired_count > 0): ?>
-<div class="notification-count"><?php echo $expired_count; ?></div>
-<?php endif; ?>
-</div>
-
 <!-- Expiring Medicines Modal -->
 <div id="notificationModal" class="modal">
 <div class="modal-content">
@@ -2249,8 +2276,10 @@ Welcome to Bene MediCon 👋 Your trusted partner in medical inventory managemen
 </div>
 
 <script>
-const sidebar = document.getElementById("sidebar");
-const hamburger = document.getElementById("hamburger");
+const sidebar     = document.getElementById("sidebar");
+const topbar      = document.getElementById("topbar");
+const mainContent = document.getElementById("main-content");
+const hamburger   = document.getElementById("hamburger");
 const buttons = {
     dashboard: document.getElementById("btn-dashboard"),
     inventory: document.getElementById("btn-inventory"),
@@ -2258,7 +2287,6 @@ const buttons = {
     donate: document.getElementById("btn-donate"),
     donationHistory: document.getElementById("btn-donation-history"),
     disposalHistory: document.getElementById("btn-disposal-history"),
-
 };
 const contents = {
     dashboard: document.getElementById("content-dashboard"),
@@ -2270,9 +2298,34 @@ const contents = {
     disposalHistory: document.getElementById("content-disposal-history"),
 };
 
+// Sidebar expand/collapse with topbar + main sync
+function applyExpanded(expanded) {
+    if (expanded) {
+        sidebar.classList.add('expanded');
+        if (topbar) topbar.style.left = 'var(--sidebar-exp)';
+        if (mainContent) mainContent.style.marginLeft = 'var(--sidebar-exp)';
+    } else {
+        sidebar.classList.remove('expanded');
+        if (topbar) topbar.style.left = 'var(--sidebar-w)';
+        if (mainContent) mainContent.style.marginLeft = 'var(--sidebar-w)';
+    }
+}
+if (localStorage.getItem('sidebarExpanded') === 'true') applyExpanded(true);
 hamburger.addEventListener("click", () => {
-    sidebar.classList.toggle("expanded");
+    const exp = !sidebar.classList.contains('expanded');
+    applyExpanded(exp);
+    localStorage.setItem('sidebarExpanded', exp);
 });
+
+// Section titles for topbar
+const sectionTitles = {
+    dashboard:       'Dashboard',
+    inventory:       'Inventory',
+    expiration:      'Expiration Tracker',
+    donate:          'Donate or Dispose',
+    donationHistory: 'Donation Requests',
+    disposalHistory: 'Disposal Requests',
+};
 
 function showSection(name) {
     Object.keys(contents).forEach(key => {
@@ -2287,6 +2340,10 @@ function showSection(name) {
         if (buttons[name]) buttons[name].classList.add("active");
         if (name === "history") loadHistoryCategories();
     }
+
+    // Update topbar title
+    const titleEl = document.getElementById('topbar-title');
+    if (titleEl && sectionTitles[name]) titleEl.textContent = sectionTitles[name];
 }
 
 let currentInventoryView = 'search';
@@ -2711,7 +2768,7 @@ function toggleProfileMenu() {
     dropdown.classList.toggle('show');
     document.addEventListener('click', function closeDropdown(e) {
         const profile = document.querySelector('.profile-menu');
-        if (!profile.contains(e.target)) {
+        if (profile && !profile.contains(e.target)) {
             dropdown.classList.remove('show');
             document.removeEventListener('click', closeDropdown);
         }

@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Database connection
-include "db.php";
+include "../db.php";
 
 $userId = $_SESSION['user_id'];
 $message = '';
@@ -237,7 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <!-- Current profile picture -->
                 <img id="currentPreview" 
-                    src="uploads/avatars/<?php echo htmlspecialchars($user['profile_pic']); ?>" 
+                    src="../uploads/avatars/<?php echo htmlspecialchars($user['profile_pic']); ?>" 
                     alt="Profile Picture" width="100" height="100" 
                     style="border-radius:50%; margin-bottom:10px; border:2px solid #ccc;">
 
@@ -250,7 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label class="avatar-option">
                             <input type="radio" name="selected_avatar" value="<?php echo $avatar; ?>" style="display:none;"
                                 <?php echo ($user['profile_pic'] === $avatar) ? 'checked' : ''; ?>>
-                            <img src="uploads/avatars/<?php echo $avatar; ?>" width="60" height="60">
+                            <img src="../uploads/avatars/<?php echo $avatar; ?>" width="60" height="60">
                         </label>
                     <?php endforeach; ?>
                 </div>
@@ -271,7 +271,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </button>
         </form>
 
-        <a href="<?php echo $user['role'] === 'admin' ? 'admin_dashboard.php' : 'staff_dashboard.php'; ?>" class="back-btn">
+        <a href="<?php echo $user['role'] === 'admin' ? 'admin/dashboard.php' : 'staff/dashboard.php'; ?>" class="back-btn">
             <i class="fas fa-arrow-left icon"></i> Back to Dashboard
         </a>
     </div>

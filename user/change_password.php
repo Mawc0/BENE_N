@@ -160,7 +160,7 @@ if (isset($_POST['change_password'])) {
             <i class="fas fa-save icon"></i> Change Password
         </button>
 
-        <a href="<?php echo $user['role'] === 'admin' ? 'admin_dashboard.php' : 'staff_dashboard.php'; ?>" class="back-btn">
+        <a href="<?php echo $user['role'] === 'admin' ? 'admin/dashboard.php' : 'staff/dashboard.php'; ?>" class="back-btn">
             <i class="fas fa-arrow-left icon"></i> Back to Dashboard
         </a>
     </form>

@@ -305,6 +305,9 @@ function updateNextCheck($id, $type, $time, $day = null) {
     $stmt->bind_param("si", $next, $id); $stmt->execute();
 }
 checkSchedules();
+
+$isGuest = ($_SESSION['role'] ?? '') === 'guest';
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1135,10 +1138,14 @@ checkSchedules();
           <div class="dh-name"><?= htmlspecialchars($_SESSION['username'] ?? 'Admin') ?></div>
           <div class="dh-role"><?= ucfirst($_SESSION['role'] ?? 'Admin') ?> &mdash; BENE MediCon</div>
         </div>
-        <a href="dashboard.php?page=notifications" class="dropdown-item">
+        <!-- <a href="dashboard.php?page=notifications" class="dropdown-item">
           <i class="fas fa-bell"></i> Notifications
           <?php if ($unreadCount > 0): ?><span style="margin-left:auto;background:var(--red-light);color:#fff;border-radius:10px;padding:1px 8px;font-size:0.68rem;"><?= $unreadCount ?></span><?php endif; ?>
-        </a>
+        </a> -->
+        <?php if (!$isGuest): ?>
+        <a href="../edit_profile.php" class="dropdown-item"><i class="fas fa-user-edit"></i> Edit Profile</a>
+        <a href="../change_password.php" class="dropdown-item"><i class="fas fa-key"></i> Change Password</a>
+        <?php endif; ?>
         <button onclick="openLogoutModal()" class="dropdown-item danger">
           <i class="fas fa-sign-out-alt"></i> Logout
         </button>
