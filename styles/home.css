@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════
    BENE MediCon — Shared Stylesheet
-   login.php & about.php
+   login.php, about.php & forgot_password.php
 ═══════════════════════════════════════ */
 
 /* ── RESET ── */
@@ -582,6 +582,262 @@ body {
 .btn-back:active { transform: scale(0.99); }
 
 /* ══════════════════════════════════════
+   FORGOT PASSWORD PAGE
+══════════════════════════════════════ */
+
+/* Compact single-panel card for forgot password */
+.fp-card {
+  width: 100%;
+  max-width: 460px;
+  background: #fff;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+  position: relative;
+  z-index: 1;
+}
+
+/* red gradient top bar on card */
+.fp-card::before {
+  content: "";
+  display: block;
+  height: 4px;
+  background: linear-gradient(90deg, var(--red-light), var(--red-deeper));
+}
+
+.fp-body {
+  padding: 2.4rem 2.6rem 2.6rem;
+}
+
+.fp-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.8rem;
+}
+
+.fp-logo img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(201, 168, 76, 0.5);
+}
+
+.fp-logo-name {
+  font-family: "EB Garamond", serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--red-deeper);
+  line-height: 1;
+}
+.fp-logo-name span { color: var(--red-light); }
+
+.fp-title {
+  font-family: "EB Garamond", serif;
+  font-size: 1.85rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 0.3rem;
+}
+
+.fp-tagline {
+  font-size: 0.82rem;
+  color: #9a8a85;
+  margin-bottom: 1.8rem;
+}
+
+/* security question box */
+.fp-question {
+  background: #fdf4f4;
+  border: 1px solid #f0d8d8;
+  border-left: 3px solid var(--red);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  color: #4a3a35;
+  margin-bottom: 1.2rem;
+  line-height: 1.5;
+}
+.fp-question strong {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--red-dark);
+  margin-bottom: 0.3rem;
+}
+
+/* back link */
+.fp-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #9a8a85;
+  text-decoration: none;
+  margin-top: 1rem;
+  transition: color 0.2s;
+}
+.fp-back:hover { color: var(--red-dark); }
+
+/* toast notification */
+.toast {
+  visibility: hidden;
+  min-width: 250px;
+  color: #fff;
+  text-align: center;
+  border-radius: 8px;
+  padding: 12px 16px;
+  position: fixed;
+  z-index: 9999;
+  right: 20px;
+  bottom: 30px;
+  font-size: 0.82rem;
+  font-family: "DM Sans", sans-serif;
+  opacity: 0;
+  transition: opacity 0.4s, bottom 0.4s;
+}
+.toast.show {
+  visibility: visible;
+  opacity: 1;
+  bottom: 50px;
+}
+.toast.success { background: #1e7e44; }
+.toast.error   { background: var(--red-light); }
+
+/* ══════════════════════════════════════
+   USER MANUAL PAGE
+══════════════════════════════════════ */
+
+.manual-card {
+  width: 100%;
+  max-width: 860px;
+  background: #fff;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+  position: relative;
+  z-index: 1;
+}
+
+/* red gradient top bar */
+.manual-card::before {
+  content: "";
+  display: block;
+  height: 4px;
+  background: linear-gradient(90deg, var(--red-light), var(--red-deeper));
+}
+
+.manual-body {
+  padding: 2rem 2.4rem 2.4rem;
+}
+
+/* header row: logo lockup + action buttons */
+.manual-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.6rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.manual-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.manual-logo img {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(201, 168, 76, 0.5);
+}
+.manual-logo-name {
+  font-family: "EB Garamond", serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--red-deeper);
+  line-height: 1;
+}
+.manual-logo-name span { color: var(--red-light); }
+
+.manual-title {
+  font-family: "EB Garamond", serif;
+  font-size: 1.85rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 0.25rem;
+}
+.manual-title span { color: var(--red-light); }
+
+.manual-tagline {
+  font-size: 0.82rem;
+  color: #9a8a85;
+  margin-bottom: 1.4rem;
+}
+
+/* PDF iframe */
+.manual-frame {
+  width: 100%;
+  height: 560px;
+  border: 1.5px solid #ecddd5;
+  border-radius: 12px;
+  display: block;
+  background: #fdf8f5;
+}
+
+/* action buttons row */
+.manual-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.2rem;
+  flex-wrap: wrap;
+}
+
+.btn-manual-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 42px;
+  padding: 0 1.2rem;
+  border-radius: 9px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.2s, transform 0.1s;
+}
+.btn-manual-action:active { transform: scale(0.98); }
+
+.btn-manual-action.primary {
+  background: linear-gradient(135deg, var(--red-light) 0%, var(--red-deeper) 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(155, 28, 28, 0.3);
+}
+.btn-manual-action.primary:hover { opacity: 0.9; }
+
+.btn-manual-action.secondary {
+  background: #f9f3ee;
+  border: 1.5px solid #e8ddd5;
+  color: var(--red-dark);
+}
+.btn-manual-action.secondary:hover { background: #f0e8e0; }
+
+.btn-manual-action.ghost {
+  background: transparent;
+  border: 1.5px solid #e0d5cc;
+  color: #7a6a62;
+}
+.btn-manual-action.ghost:hover { background: #fdf8f5; color: var(--red-dark); }
+
+/* ══════════════════════════════════════
    RESPONSIVE
 ══════════════════════════════════════ */
 @media (max-width: 700px) {
@@ -591,4 +847,11 @@ body {
   .right { padding: 2rem 1.5rem; }
   .blob-1 { width: 180px; height: 180px; }
   .blob-2 { width: 110px; height: 110px; }
+  .fp-card { max-width: 100%; }
+  .fp-body { padding: 2rem 1.5rem; }
+  .manual-card { max-width: 100%; }
+  .manual-body { padding: 1.5rem 1.2rem; }
+  .manual-frame { height: 380px; }
+  .manual-actions { flex-direction: column; }
+  .btn-manual-action { width: 100%; justify-content: center; }
 }

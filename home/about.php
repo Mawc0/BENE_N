@@ -47,7 +47,7 @@ $_SESSION['last_fact'] = $randomFact;
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../styles/home_pages.css">
+    <link rel="stylesheet" href="../styles/home.css">
 </head>
 <body>
 
