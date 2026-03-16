@@ -1,6 +1,6 @@
 <?php
 session_start();
-include 'db.php'; // Database connection
+include '../db.php'; // Database connection
 
 // Check if user is logged in
 $userId = $_SESSION['user_id'] ?? null;

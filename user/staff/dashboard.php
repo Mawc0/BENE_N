@@ -1260,7 +1260,7 @@ table tr:hover {
 Action required:
 <?php if ($forcePasswordChange): ?> You must update your password.<?php endif; ?>
 <?php if ($forceSecuritySetup): ?> You must set your security question.<?php endif; ?>
-<a href="change_password.php">Click here to continue</a>.
+<a href="../change_password.php">Click here to continue</a>.
 </span>
 <button class="close-btn" onclick="this.closest('.password-alert').remove();">&times;</button>
 </div>
