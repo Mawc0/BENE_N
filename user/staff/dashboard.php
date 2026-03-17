@@ -949,101 +949,118 @@ new Chart(document.getElementById('expiryTrendChart'), {
 </div>
 
 <div id="content-expiration" class="content">
-  <h1>🩺 Medicine Expiry Tracker</h1>
-  <p>View medicines expiring within 7 days and those already expired.</p>
+  <h1>Expiry Tracker</h1>
 
-  <!-- Export & Print -->
-  <div style="margin: 20px 0; text-align: right;">
-    <button onclick="printReport('expiry-full-table')" class="stock-btn" style="background:#2196F3;">
-      🖨️ Print Report
-    </button>
-    <a href="export_expiration.php?format=excel" class="stock-btn" style="background:#4CAF50;">
-      📊 Export to Excel
-    </a>
+  <!-- toolbar: filters + actions -->
+  <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:1rem;">
+
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <!-- status pills -->
+      <button class="inv-pill active" id="exp-pill-all"      onclick="expFilter('all',      this)">All</button>
+      <button class="inv-pill"        id="exp-pill-expiring"  onclick="expFilter('expiring',  this)">Expiring Soon</button>
+      <button class="inv-pill"        id="exp-pill-expired"   onclick="expFilter('expired',   this)">Expired</button>
+      <button class="inv-pill"        id="exp-pill-low"       onclick="expFilter('low',       this)">Low Stock</button>
+
+      <!-- category dropdown -->
+      <select id="expiry-category-filter" onchange="applyExpiryFilter()"
+              style="height:32px; padding:0 10px; border:1.5px solid var(--border);
+                     border-radius:20px; font-family:'DM Sans',sans-serif;
+                     font-size:0.8rem; color:var(--text-muted); outline:none; cursor:pointer;">
+        <option value="">All Categories</option>
+        <?php foreach ($categories as $cat): ?>
+          <option value="<?= htmlspecialchars($cat) ?>"><?= htmlspecialchars($cat) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+
+    <!-- print + export -->
+    <div style="display:flex; gap:8px;">
+      <button onclick="printReport('expiry-full-table')" class="btn" style="background:#0288d1;">
+        <i class="fas fa-print"></i> Print
+      </button>
+      <a href="export_expiration.php?format=excel" class="btn btn-add">
+        <i class="fas fa-file-excel"></i> Export
+      </a>
+    </div>
   </div>
 
-  <!-- Unified Table -->
-  <table id="expiry-full-table">
-    <thead>
-      <tr>
-        <th>Image</th>
-        <th>Name</th>
-        <th>Type</th>
-        <th>Batch Date</th>
-        <th>Expiry Date</th>
-        <th>Days Left</th>
-        <th>Quantity</th>
-        <th>Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      <?php
-      // Fetch ALL medicines that are either:
-      // - Expiring within 7 days (but not expired), OR
-      // - Already expired
-      $result = $conn->query("
-        SELECT *,
-          CASE
-            WHEN expired_date < CURDATE() THEN 3          -- Expired (last)
-            WHEN quantity <= 20 THEN 1                    -- Low stock (first)
-            ELSE 2                                        -- Normal stock (middle)
-          END AS sort_order
-        FROM medicines
-        WHERE expired_date <= CURDATE() + INTERVAL 7 DAY
-        ORDER BY sort_order ASC, expired_date ASC
-      ");
+  <!-- table -->
+  <div class="table-wrap">
+    <table id="expiry-full-table">
+      <thead>
+        <tr>
+          <th>Image</th>
+          <th>Name</th>
+          <th>Category</th>
+          <th>Batch Date</th>
+          <th>Expiry Date</th>
+          <th>Days Left</th>
+          <th style="text-align:center;">Qty</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php
+        $expResult = $conn->query("
+          SELECT *,
+            CASE
+              WHEN expired_date < CURDATE() THEN 3
+              WHEN quantity <= 20            THEN 1
+              ELSE 2
+            END AS sort_order
+          FROM medicines
+          WHERE expired_date <= CURDATE() + INTERVAL 7 DAY
+          ORDER BY sort_order ASC, expired_date ASC
+        ");
+        while ($row = $expResult->fetch_assoc()):
+          $expiryDate = new DateTime($row['expired_date']);
+          $todayDt    = new DateTime();
+          $isExpired  = $expiryDate < $todayDt;
+          $interval   = $todayDt->diff($expiryDate);
+          $daysLeft   = $isExpired ? -$interval->days : $interval->days;
+          $isLow      = !$isExpired && $row['quantity'] <= 20;
 
-      while ($row = $result->fetch_assoc()):
-        $expiryDate = new DateTime($row['expired_date']);
-        $today = new DateTime();
-        $isExpired = $expiryDate < $today;
-        $interval = $today->diff($expiryDate);
-        $daysLeft = $isExpired ? -$interval->days : $interval->days;
+          $statusText = $isExpired ? 'Expired' : ($isLow ? 'Low Stock' : 'Valid');
+          $statusHtml = $isExpired
+            ? '<span class="badge-expired">&#128308; Expired</span>'
+            : ($isLow
+              ? '<span class="badge-low">&#9888; Low Stock</span>'
+              : '<span class="badge-good">&#10003; Valid</span>');
 
-        $balance = $isExpired ? 0 : $row['quantity'];
-        $isLowStock = !$isExpired && $balance <= 20;
+          $rowClass   = $isExpired ? 'expiring-soon' : ($isLow ? 'warning' : '');
+          $daysDisplay = $isExpired
+            ? '<span style="color:var(--red-light);font-weight:600;">Expired</span>'
+            : ($daysLeft === 0
+              ? '<span style="color:#d97706;font-weight:600;">Today</span>'
+              : '<span style="font-weight:600;">' . $daysLeft . ' day' . ($daysLeft != 1 ? 's' : '') . '</span>');
+        ?>
+        <tr class="<?= $rowClass ?>"
+            data-status="<?= $isExpired ? 'expired' : ($isLow ? 'low' : 'expiring') ?>"
+            data-category="<?= htmlspecialchars($row['type']) ?>">
+          <td><img src="uploads/medicines/<?= htmlspecialchars($row['image']) ?>"
+                   width="44" height="44" style="border-radius:6px;object-fit:cover;" alt=""></td>
+          <td><?= htmlspecialchars($row['name']) ?></td>
+          <td><span style="background:#fef2f2;color:var(--red-dark);padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;"><?= htmlspecialchars($row['type']) ?></span></td>
+          <td><?= htmlspecialchars($row['batch_date']) ?></td>
+          <td><?= htmlspecialchars($row['expired_date']) ?></td>
+          <td><?= $daysDisplay ?></td>
+          <td style="text-align:center;font-weight:600;"><?= (int)$row['quantity'] ?></td>
+          <td><?= $statusHtml ?></td>
+        </tr>
+        <?php endwhile; ?>
+      </tbody>
+    </table>
 
-        $status = $isExpired 
-          ? '🔴 Expired' 
-          : ($isLowStock ? '⚠️ Low Stock' : '✅ Valid');
+    <!-- pagination -->
+    <div class="inv-pagination" id="exp-pagination">
+      <span id="exp-page-info">Showing 1–10</span>
+      <div class="inv-pages" id="exp-pages"></div>
+    </div>
+  </div>
 
-        $rowClass = $isExpired 
-          ? 'expiring-soon' 
-          : ($isLowStock ? 'warning' : '');
-
-        $daysDisplay = $isExpired 
-          ? "Expired" 
-          : ($daysLeft === 0 ? "Today" : "$daysLeft day" . ($daysLeft != 1 ? 's' : ''));
-      ?>
-      <tr class="<?= $rowClass ?>">
-        <td><img src="uploads/medicines/<?php echo htmlspecialchars($row['image']); ?>" width="50" alt="Medicine"></td>
-        <td><?php echo htmlspecialchars($row['name']); ?></td>
-        <td><?php echo htmlspecialchars($row['type']); ?></td>
-        <td><?php echo htmlspecialchars($row['batch_date']); ?></td>
-        <td><?php echo htmlspecialchars($row['expired_date']); ?></td>
-        <td style="font-weight: bold; <?php echo $isExpired ? 'color: #d32f2f;' : ''; ?>">
-          <?= $daysDisplay ?>
-        </td>
-        <td><?php echo (int)$row['quantity']; ?></td>
-        <td><?= $status ?></td>
-      </tr>
-      <?php endwhile; ?>
-    </tbody>
-  </table>
-
-  <div style="margin: 15px 0;">
-  <label>Filter by Category:</label>
-  <select id="expiry-category-filter" onchange="filterExpiryTable()">
-    <option value="">All Categories</option>
-    <?php foreach ($categories as $cat): ?>
-      <option value="<?php echo htmlspecialchars($cat); ?>"><?php echo htmlspecialchars($cat); ?></option>
-    <?php endforeach; ?>
-  </select>
-</div>
-
-  <?php if ($result->num_rows == 0): ?>
-    <p style="color: #34a853; font-style: italic; margin-top: 20px;">
-      No medicines expiring within 7 days or already expired.
+  <?php if ($expResult->num_rows == 0): ?>
+    <p style="color:#059669;font-style:italic;margin-top:1rem;font-size:0.88rem;">
+      &#10003; No medicines expiring within 7 days or already expired.
     </p>
   <?php endif; ?>
 </div>
@@ -1719,7 +1736,8 @@ function hidePagination() {
 document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('inventory-search');
     if (searchInput) searchInput.addEventListener('input', applyInventoryFilter);
-    applyInventoryFilter(); // ← add this line
+    applyInventoryFilter();
+    applyExpiryFilter();
 });
 
 Object.keys(buttons).forEach(key => {
@@ -1782,13 +1800,94 @@ function closeCategoryModal() {
     document.getElementById("categoryModal").style.display = "none";
 }
 
-function filterExpiryTable() {
-    const category = document.getElementById('expiry-category-filter').value;
-    const rows = document.querySelectorAll("#expiry-full-table tbody tr");
-    rows.forEach(row => {
-        const typeCell = row.cells[2]; // "Type" column
-        row.style.display = !category || typeCell.textContent === category ? "" : "none";
+// ── Expiry Tracker filter + pagination ──
+let expActiveStatus   = 'all';
+const EXP_PAGE_SIZE   = 6;
+let expCurrentPage    = 1;
+
+function expFilter(status, btn) {
+    expActiveStatus = status;
+    expCurrentPage  = 1;
+    document.querySelectorAll('#exp-pill-all, #exp-pill-expiring, #exp-pill-expired, #exp-pill-low')
+        .forEach(p => p.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    applyExpiryFilter();
+}
+
+function applyExpiryFilter() {
+    const category = (document.getElementById('expiry-category-filter')?.value || '');
+    const allRows  = [...document.querySelectorAll('#expiry-full-table tbody tr')];
+
+    const matched = allRows.filter(row => {
+        const rowStatus = row.dataset.status || '';
+        const rowCat    = row.dataset.category || '';
+        const statusMatch = expActiveStatus === 'all' || rowStatus === expActiveStatus;
+        const catMatch    = !category || rowCat === category;
+        return statusMatch && catMatch;
     });
+
+    // hide all
+    allRows.forEach(r => r.style.display = 'none');
+
+    // paginate
+    const total      = matched.length;
+    const totalPages = Math.ceil(total / EXP_PAGE_SIZE);
+    expCurrentPage   = Math.min(expCurrentPage, totalPages || 1);
+    const start      = (expCurrentPage - 1) * EXP_PAGE_SIZE;
+    const end        = Math.min(start + EXP_PAGE_SIZE, total);
+    matched.slice(start, end).forEach(r => r.style.display = '');
+
+    renderExpiryPagination(total, totalPages, start + 1, end);
+}
+
+function renderExpiryPagination(total, totalPages, start, end) {
+    const pag   = document.getElementById('exp-pagination');
+    const info  = document.getElementById('exp-page-info');
+    const pages = document.getElementById('exp-pages');
+    if (!pag) return;
+    pag.style.display = total > EXP_PAGE_SIZE ? 'flex' : 'none';
+    info.textContent  = total === 0 ? 'No results' : `Showing ${start}–${end} of ${total}`;
+
+    pages.innerHTML = '';
+    const prev = document.createElement('button');
+    prev.className = 'inv-page-btn';
+    prev.innerHTML = '&#8249;';
+    prev.disabled  = expCurrentPage === 1;
+    prev.onclick   = () => goToExpPage(expCurrentPage - 1);
+    pages.appendChild(prev);
+
+    const range = 2;
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= expCurrentPage - range && i <= expCurrentPage + range)) {
+            const btn = document.createElement('button');
+            btn.className   = 'inv-page-btn' + (i === expCurrentPage ? ' active' : '');
+            btn.textContent = i;
+            btn.onclick     = () => goToExpPage(i);
+            pages.appendChild(btn);
+        } else if (
+            (i === expCurrentPage - range - 1 && i > 1) ||
+            (i === expCurrentPage + range + 1 && i < totalPages)
+        ) {
+            const dots = document.createElement('button');
+            dots.className  = 'inv-page-btn';
+            dots.textContent = '…';
+            dots.disabled   = true;
+            pages.appendChild(dots);
+        }
+    }
+
+    const next = document.createElement('button');
+    next.className = 'inv-page-btn';
+    next.innerHTML = '&#8250;';
+    next.disabled  = expCurrentPage === totalPages;
+    next.onclick   = () => goToExpPage(expCurrentPage + 1);
+    pages.appendChild(next);
+}
+
+function goToExpPage(page) {
+    expCurrentPage = page;
+    applyExpiryFilter();
+    document.getElementById('expiry-full-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function openHistoryCategory(category) {
