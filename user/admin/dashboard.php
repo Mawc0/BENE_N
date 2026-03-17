@@ -232,6 +232,27 @@ if ($page === 'manage_users') {
     }
 }
 
+// Delete User
+if (isset($_GET['delete'])) {
+    $id = (int)$_GET['delete'];
+    $stmt = $conn->prepare("SELECT role FROM users WHERE id=?");
+    $stmt->bind_param("i", $id); $stmt->execute();
+    $roleRes = $stmt->get_result()->fetch_assoc(); $stmt->close();
+    if ($roleRes && $roleRes['role'] === 'admin') {
+        header("Location: dashboard.php?page=manage_users&msg=Cannot delete an admin account.");
+        exit;
+    }
+    $stmt = $conn->prepare("DELETE FROM users WHERE id=?");
+    $stmt->bind_param("i", $id);
+    if ($stmt->execute()) {
+        header("Location: dashboard.php?page=manage_users&msg=User deleted successfully.");
+    } else {
+        header("Location: dashboard.php?page=manage_users&msg=Error: " . $stmt->error);
+    }
+    $stmt->close();
+    exit;
+}
+
 // Schedules
 if ($page === 'schedules') {
     if (isset($_POST['create_schedule'])) {
