@@ -13,7 +13,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 header('Content-Type: application/json');
 
 // 🔑 Groq API Key
-$GROQ_API_KEY = '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';
+require_once __DIR__ . '/config.php';
+$GROQ_API_KEY = GROQ_API_KEY;
 
 // 🗄️ Database
 include "../../db.php";
@@ -251,7 +252,7 @@ if ($reply === null) {
     }
     $medicineListStr = !empty($medList) ? implode("\n", $medList) : "None";
 
-    $systemPrompt = "You are MedBot, AI assistant for BENE MediCon.
+    $systemPrompt = "You are BENE Asssist, AI assistant for BENE MediCon.
 CURRENT INVENTORY:
 - Medicines:\n$medicineListStr
 
@@ -293,7 +294,7 @@ Answer the user:";
         $reply = $data['choices'][0]['message']['content'] ?? "I couldn't process that.";
         $reply = trim(preg_replace('/\s+/', ' ', $reply));
     } else {
-        $reply = "⚠️ MedBot is offline. Ask about stock, expiry, donation, or disposal.";
+        $reply = "⚠️ BENE Assist is offline. Ask about stock, expiry, donation, or disposal.";
     }
 }
 

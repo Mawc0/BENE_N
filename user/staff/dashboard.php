@@ -450,6 +450,27 @@ if ($userId) {
 }
 .inv-pill:hover  { border-color: #f0d8d8; color: #7b1010; background: #fdf4f4; }
 .inv-pill.active { background: #7b1010; border-color: #7b1010; color: #fff; }
+
+/* ── Typing indicator ── */
+.typing-indicator {
+    display: flex;
+    gap: 5px;
+    padding: 10px 14px;
+    width: fit-content;
+}
+.typing-indicator span {
+    width: 8px;
+    height: 8px;
+    background: #888;
+    border-radius: 50%;
+    animation: typingBounce 1.2s infinite;
+}
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingBounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30%           { transform: translateY(-6px); }
+}
 </style>
 </head>
 <body>
@@ -1972,11 +1993,29 @@ function sendChatbotMessage() {
     if (!message) return;
     appendMsg("user", message);
     chatInput.value = "";
+
+    // Show typing indicator
+    const typingDiv = document.createElement("div");
+    typingDiv.classList.add("message", "bot", "typing-indicator");
+    typingDiv.id = "typingIndicator";
+    typingDiv.innerHTML = "<span></span><span></span><span></span>";
+    chatbox.appendChild(typingDiv);
+    chatbox.scrollTop = chatbox.scrollHeight;
+
     fetch('chatbot.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: 'message=' + encodeURIComponent(message)
-    }).then(r => r.json()).then(data => appendMsg("bot", data.reply));
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById("typingIndicator")?.remove(); // Remove typing
+        appendMsg("bot", data.reply);
+    })
+    .catch(() => {
+        document.getElementById("typingIndicator")?.remove();
+        appendMsg("bot", "⚠️ Something went wrong.");
+    });
 }
 chatInput.addEventListener("keypress", e => { if (e.key === "Enter") sendChatbotMessage(); });
 
