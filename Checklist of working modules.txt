@@ -1,0 +1,15 @@
+Checklist of working modules:
+
+Admin side:
+- Main Dashboard ✅
+- Inventory:
+	- Medicines ✅
+	- Categories ✅
+	- Donations ✅
+- Administration
+	- Manage Users ✅
+	- Schedules ✅
+- Activity
+	- Logs ✅
+	- Notifications ✅
+	
