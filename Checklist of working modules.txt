@@ -1,6 +1,14 @@
 Checklist of working modules:
 
-Admin side:
+Home Pages:
+- Login (Staff/Admin ✅) (Guest 🤔)
+- About (View/Download ✅)
+
+User Pages:
+- Edit Profile ✅
+- Change Password ✅
+
+Admin Side:
 - Main Dashboard ✅
 - Inventory:
 	- Medicines ✅
@@ -12,4 +20,14 @@ Admin side:
 - Activity
 	- Logs ✅
 	- Notifications ✅
+
+Staff Side:
+- Main Dashboard 
+- Inventory:
+	- Inventory
+	- Expiration
+- Requests:
+	- Donate or Dispose
+	- Donation Requests
+	- Disposal Requests
 	
