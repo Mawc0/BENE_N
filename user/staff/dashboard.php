@@ -853,7 +853,7 @@ new Chart(document.getElementById('expiryTrendChart'), {
             $rowClass  = $isExpired ? 'expiring-soon' : ($isLow ? 'warning' : '');
         ?>
         <tr class="<?= $rowClass ?>" data-category="<?= htmlspecialchars($row['type']) ?>" data-name="<?= strtolower(htmlspecialchars($row['name'])) ?>">
-          <td><img src="uploads/medicines/<?= htmlspecialchars($row['image']) ?>" width="40" height="40" style="border-radius:6px;object-fit:cover;" alt=""></td>
+          <td><img src="../../uploads/medicines/<?= htmlspecialchars($row['image']) ?>" width="40" height="40" style="border-radius:6px;object-fit:cover;" alt=""></td>
           <td><?= htmlspecialchars($row['name']) ?></td>
           <td><span style="background:#fef2f2;color:var(--red-dark);padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;"><?= htmlspecialchars($row['type']) ?></span></td>
           <td><?= htmlspecialchars($row['batch_date']) ?></td>
@@ -1610,7 +1610,7 @@ function showSection(name) {
 
 // ── Unified inventory filter (category pill + search bar) ──
 let invActiveCategory = 'all';
-const INV_PAGE_SIZE = 5;
+const INV_PAGE_SIZE = 6;
 let invCurrentPage  = 1;
 
 function filterInventory(category, btn) {
