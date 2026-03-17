@@ -417,7 +417,39 @@ if ($userId) {
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../../styles/s_dashboard.css">
 <style>
+/* ── Inventory pagination ── */
+.inv-pagination {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.8rem 1rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.82rem; color: var(--text-muted);
+}
+.inv-pages { display: flex; gap: 4px; }
+.inv-page-btn {
+    width: 32px; height: 32px; border-radius: 7px;
+    border: 1.5px solid var(--border); background: #fff;
+    font-family: 'DM Sans', sans-serif; font-size: 0.8rem;
+    color: var(--text-muted); cursor: pointer;
+    transition: all 0.15s;
+}
+.inv-page-btn:hover { border-color: #f0d8d8; color: var(--red-dark); }
+.inv-page-btn.active { background: var(--red-dark); border-color: var(--red-dark); color: #fff; }
+.inv-page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
+/* ── Inventory category pills ── */
+.inv-pill {
+    height: 32px; padding: 0 14px;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 20px;
+    background: #fff;
+    color: #6b7280;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem; font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.inv-pill:hover  { border-color: #f0d8d8; color: #7b1010; background: #fdf4f4; }
+.inv-pill.active { background: #7b1010; border-color: #7b1010; color: #fff; }
 </style>
 </head>
 <body>
@@ -642,7 +674,7 @@ new Chart(document.getElementById('categoryChart'), {
             ],
             borderWidth: 1.5,
             borderRadius: 6,
-            borderSkipped: false
+            borderSkipped: false        
         }]
     },
     options: {
@@ -706,7 +738,6 @@ new Chart(document.getElementById('stockLevelsChart'), {
     },
     options: {
         ...commonOptions,
-        cutout: '62%',
         plugins: {
             ...commonOptions.plugins,
             title: { ...commonOptions.plugins.title, text: 'Stock Level Distribution' }
@@ -759,203 +790,162 @@ new Chart(document.getElementById('expiryTrendChart'), {
 
 <div id="content-inventory" class="content">
   <h1>Inventory</h1>
-  <p>Manage your medicine stock and track expiration dates.</p>
 
-  <!-- Toggle Buttons -->
-  <div style="display: flex; gap: 10px; margin: 15px 0;">
-    <button id="btn-search-view" class="stock-btn" style="background: #1a73e8;" onclick="switchInventoryView('search')">🔍 Search</button>
-    <button id="btn-manage-view" class="stock-btn" style="background: #4CAF50;" onclick="switchInventoryView('manage')" <?php echo $isGuest ? 'disabled' : ''; ?>>🛠️ Manage Stock</button>
+  <!-- ── toolbar: search + add ── -->
+  <div style="display:flex; gap:10px; align-items:center; margin-bottom:1rem; flex-wrap:wrap;">
+    <input type="text" id="inventory-search" placeholder="&#128269; Search by name..."
+           style="flex:1; min-width:180px; height:38px; padding:0 12px;
+                  border:1.5px solid var(--border); border-radius:8px;
+                  font-family:'DM Sans',sans-serif; font-size:0.88rem; outline:none;
+                  transition:border-color 0.2s;"
+           onfocus="this.style.borderColor='var(--red)'"
+           onblur="this.style.borderColor='var(--border)'">
     <?php if (!$isGuest): ?>
-    <button onclick="openAddMedicineModal()" class="stock-btn" style="background: #25d5a3ff;">
-    ➕ Add Medicine
+    <button onclick="openAddMedicineModal()" class="btn btn-add">
+      <i class="fas fa-plus"></i> Add Medicine
     </button>
     <?php endif; ?>
   </div>
 
-  <!-- Unified Search Bar -->
-  <div style="margin-bottom: 20px;">
-    <input type="text" id="inventory-search" placeholder="🔍 Search medicine by name..." 
-           style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem;">
+  <!-- ── category filter pills ── -->
+  <div id="inv-category-pills" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:1.2rem;">
+    <button class="inv-pill active" onclick="filterInventory('all', this)">All</button>
+    <?php foreach ($categories as $cat): ?>
+      <button class="inv-pill" onclick="filterInventory('<?= addslashes(htmlspecialchars($cat)) ?>', this)">
+        <?= htmlspecialchars($cat) ?>
+      </button>
+    <?php endforeach; ?>
   </div>
 
-
-    <!-- SEARCH VIEW (Category Buttons Only) -->
-    <div id="inventory-search-view">
-
-        <!-- Toggle Button -->
-        <button id="toggleSearchTableBtn" class="stock-btn" style="background: #6c757d; margin-bottom: 15px;"
-                onclick="toggleSearchTable()">
-            📊 Toggle Medicine Table
-        </button>
-
-        <!-- Table Container -->
-        <div id="searchTableContainer" style="display: none;">
-            <div style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between;">
-                <?php
-                $medsByCategory = [];
-                $result = $conn->query("
-                    SELECT *,
-                    CASE
-                        WHEN expired_date < CURDATE() THEN 3
-                        WHEN quantity <= 20 THEN 1
-                        ELSE 2
-                    END AS sort_order
-                    FROM medicines
-                    ORDER BY sort_order ASC, expired_date ASC
-                ");
-                while ($row = $result->fetch_assoc()) {
-                    $medsByCategory[$row['type']][] = $row;
-                }
-
-                foreach ($categories as $cat):
-                    if (!isset($medsByCategory[$cat]) || empty($medsByCategory[$cat])) continue;
-                    $lowCount = 0;
-                    foreach ($medsByCategory[$cat] as $m) {
-                        $expDate = new DateTime($m['expired_date']);
-                        $today = new DateTime();
-                        $isExpired = $expDate < $today;
-                        if (!$isExpired && $m['quantity'] <= 20) $lowCount++;
-                    }
-                ?>
-                <div class="category-card" style="flex: 1 1 calc(33.333% - 20px); min-width: 300px; max-width: 400px; display: flex; flex-direction: column;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #f0f4f8; border-bottom: 1px solid #ddd;">
-                    <h3 style="color: #1a73e8; margin: 0;"><?php echo htmlspecialchars($cat); ?></h3>
-                    <?php if ($lowCount > 0): ?>
-                        <span class="category-badge" title="<?php echo $lowCount; ?> low stock item(s)"><?php echo $lowCount; ?></span>
-                    <?php endif; ?>
-                    </div>
-                    <div style="flex: 1; overflow-y: auto; padding: 15px; background: white; border: 1px solid #eee; border-top: none;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
-                        <thead>
-                        <tr style="background: #f0f4f8; border-bottom: 2px solid #ddd;">
-                            <th style="padding: 8px; width: 50px;">Image</th>
-                            <th style="padding: 8px; min-width: 120px;">Name</th>
-                            <th style="padding: 8px; min-width: 80px;">Batch Date</th>
-                            <th style="padding: 8px; min-width: 80px;">Expiry Date</th>
-                            <th style="padding: 8px; width: 60px; text-align: center;">Qty</th>
-                            <th style="padding: 8px; width: 80px;">Status</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <?php foreach ($medsByCategory[$cat] as $row):
-                            $expiryDate = new DateTime($row['expired_date']);
-                            $today = new DateTime();
-                            $isExpired = $expiryDate < $today;
-                            $status = $isExpired ? '🔴 Expired' : (($row['quantity'] <= 20 && !$isExpired) ? '⚠️ Low Stock' : '✅ In Stock');
-                            $rowClass = $isExpired ? 'expiring-soon' : (($row['quantity'] <= 20 && !$isExpired) ? 'warning' : '');
-                        ?>
-                        <tr class="<?= $rowClass ?>" style="border-bottom: 1px solid #eee;">
-                            <td style="padding: 8px;"><img src="uploads/medicines/<?php echo htmlspecialchars($row['image']); ?>" width="40" alt="Medicine"></td>
-                            <td style="padding: 8px; word-break: break-word;"><?php echo htmlspecialchars($row['name']); ?></td>
-                            <td style="padding: 8px;"><?php echo htmlspecialchars($row['batch_date']); ?></td>
-                            <td style="padding: 8px;"><?php echo htmlspecialchars($row['expired_date']); ?></td>
-                            <td style="padding: 8px; text-align: center;"><?php echo (int)$row['quantity']; ?></td>
-                            <td style="padding: 8px; font-weight: bold;"><?php echo $status; ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-                </div>
-        </div>
-
-        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;">
-        <?php foreach ($categories as $cat): ?>
-            <button class="stock-btn" style="background:#1a73e8; padding:10px 16px;"
-                    onclick="openSearchCategoryModal('<?php echo addslashes($cat); ?>')">
-            <?php echo htmlspecialchars($cat); ?>
-            </button>
-        <?php endforeach; ?>
-        </div>
-    <p style="color: #666;">Click a category above to view its medicines.</p>
-    </div>
-
-  <!-- 🛠️ MANAGE VIEW (Category Buttons Only) -->
-  <div id="inventory-manage-view" style="display: none;">
-
-    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;">
-      <?php foreach ($categories as $cat): ?>
-        <button class="stock-btn" style="background:#0288d1; padding:10px 16px;"
-                <?php echo $isGuest ? 'disabled' : 'onclick="openManageCategoryModal(\'' . addslashes($cat) . '\')"' ?>>
-          <?php echo htmlspecialchars($cat); ?>
-        </button>
-      <?php endforeach; ?>
-    </div>
-
-    <p style="color: #666;">Click a category above to manage its medicines.</p>
+  <!-- ── unified table ── -->
+  <div class="table-wrap">
+    <table id="inventory-table">
+      <thead>
+        <tr>
+          <th>Image</th>
+          <th>Name</th>
+          <th>Category</th>
+          <th>Batch Date</th>
+          <th>Expiry Date</th>
+          <th style="text-align:center;">Qty</th>
+          <th>Status</th>
+          <?php if (!$isGuest): ?><th>Actions</th><?php endif; ?>
+        </tr>
+      </thead>
+      <tbody>
+        <?php
+        $invResult = $conn->query("
+            SELECT *,
+            CASE WHEN expired_date < CURDATE() THEN 3
+                 WHEN quantity <= 20 THEN 1
+                 ELSE 2 END AS sort_order
+            FROM medicines
+            ORDER BY sort_order ASC, expired_date ASC
+        ");
+        while ($row = $invResult->fetch_assoc()):
+            $expDate   = new DateTime($row['expired_date']);
+            $todayDt   = new DateTime();
+            $isExpired = $expDate < $todayDt;
+            $isLow     = !$isExpired && $row['quantity'] <= 20;
+            $status    = $isExpired ? '<span class="badge-expired">&#128308; Expired</span>'
+                       : ($isLow    ? '<span class="badge-low">&#9888; Low Stock</span>'
+                                    : '<span class="badge-good">&#10003; In Stock</span>');
+            $rowClass  = $isExpired ? 'expiring-soon' : ($isLow ? 'warning' : '');
+        ?>
+        <tr class="<?= $rowClass ?>" data-category="<?= htmlspecialchars($row['type']) ?>" data-name="<?= strtolower(htmlspecialchars($row['name'])) ?>">
+          <td><img src="uploads/medicines/<?= htmlspecialchars($row['image']) ?>" width="40" height="40" style="border-radius:6px;object-fit:cover;" alt=""></td>
+          <td><?= htmlspecialchars($row['name']) ?></td>
+          <td><span style="background:#fef2f2;color:var(--red-dark);padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;"><?= htmlspecialchars($row['type']) ?></span></td>
+          <td><?= htmlspecialchars($row['batch_date']) ?></td>
+          <td><?= htmlspecialchars($row['expired_date']) ?></td>
+          <td style="text-align:center;font-weight:600;"><?= (int)$row['quantity'] ?></td>
+          <td><?= $status ?></td>
+          <?php if (!$isGuest): ?>
+          <td>
+            <?php if (!$isExpired): ?>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+              <!-- add stock -->
+              <form method="POST" style="display:inline-flex;align-items:center;gap:4px;">
+                <input type="hidden" name="id" value="<?= (int)$row['id'] ?>">
+                <input type="hidden" name="action" value="add">
+                <input type="number" name="change" placeholder="Qty" min="1" required
+                       style="width:52px;height:30px;padding:0 6px;border:1.5px solid var(--border);border-radius:6px;font-size:0.78rem;outline:none;">
+                <button type="submit" name="adjust_stock" class="btn btn-add" style="height:30px;padding:0 8px;font-size:0.75rem;">+ Add</button>
+              </form>
+              <!-- use stock -->
+              <form method="POST" style="display:inline-flex;align-items:center;gap:4px;">
+                <input type="hidden" name="id" value="<?= (int)$row['id'] ?>">
+                <input type="hidden" name="action" value="use">
+                <input type="number" name="change" placeholder="Qty" min="1" required
+                       style="width:52px;height:30px;padding:0 6px;border:1.5px solid var(--border);border-radius:6px;font-size:0.78rem;outline:none;">
+                <button type="submit" name="adjust_stock" class="btn btn-del" style="height:30px;padding:0 8px;font-size:0.75rem;"
+                        onclick="return confirm('Use this stock?')">− Use</button>
+              </form>
+              <!-- edit & delete -->
+              <button onclick="openEditModal(<?= (int)$row['id'] ?>)" class="btn btn-info" style="height:30px;padding:0 8px;font-size:0.75rem;background:#0288d1;">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button onclick="openDeleteModal(<?= (int)$row['id'] ?>, '<?= addslashes(htmlspecialchars($row['name'])) ?>')" class="btn btn-del" style="height:30px;padding:0 8px;font-size:0.75rem;">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+            <?php else: ?>
+              <span style="color:#9a8a85;font-style:italic;font-size:0.8rem;">Expired</span>
+            <?php endif; ?>
+          </td>
+          <?php endif; ?>
+        </tr>
+        <?php endwhile; ?>
+      </tbody>
+    </table>
+    <div class="inv-pagination" id="inv-pagination">
+    <span id="inv-page-info">Showing 1–10</span>
+    <div class="inv-pages" id="inv-pages"></div>
+</div>
   </div>
+  <p id="inv-no-results" style="display:none;color:var(--text-muted);text-align:center;padding:1.5rem 0;font-size:0.88rem;">
+    No medicines found matching your search.
+  </p>
 
-    <!-- ✅ CATEGORY MANAGE MODAL -->
-    <div id="manageCategoryModal" class="modal">
-    <div class="modal-content" style="max-width: 95%; width: 95%;">
-        <div class="modal-header">
-        <h3 id="manageCategoryTitle">Manage Medicines</h3>
-        <span class="modal-close" onclick="closeManageCategoryModal()">&times;</span>
-        </div>
-        <div class="modal-body">
-        <div id="manageCategoryTableContainer">
-            <!-- Table loaded via JS -->
-        </div>
-        </div>
-    </div>
-    </div>
-
-    <!-- ✅ SEARCH CATEGORY MODAL -->
-    <div id="searchCategoryModal" class="modal">
-    <div class="modal-content" style="max-width: 95%; width: 95%;">
-    <div class="modal-header">
-        <h3 id="searchCategoryTitle">Medicines in Category</h3>
-        <span class="modal-close" onclick="closeSearchCategoryModal()">&times;</span>
-    </div>
-    <div class="modal-body">
-        <div id="searchCategoryTableContainer"></div>
-    </div>
-    </div>
-    </div>
-
-  <!-- Add Medicine Modal (unchanged) -->
+  <!-- Add Medicine Modal -->
   <div id="addMedicineModal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width:500px;">
       <div class="modal-header">
-        <h3>➕ Add New Medicine</h3>
+        <h3><i class="fas fa-plus-circle" style="margin-right:8px;color:var(--red-light);"></i>Add New Medicine</h3>
         <span class="modal-close" onclick="closeAddMedicineModal()">&times;</span>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" style="padding-top:1rem;">
         <form method="POST" action="staff_dashboard.php" enctype="multipart/form-data">
-          <div style="max-width: 100%;">
-            <label style="display:block;margin:10px 0 5px;font-weight:600;">Medicine Name</label>
-            <input type="text" name="name" required
-              style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;margin-bottom:15px;">
-            <label style="display:block;margin:10px 0 5px;font-weight:600;">Category</label>
-            <select name="type" required style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;margin-bottom:15px;">
-              <option value="" disabled selected>Select Category</option>
-              <?php foreach ($categories as $cat): ?>
-                <option value="<?php echo $cat; ?>"><?php echo $cat; ?></option>
-              <?php endforeach; ?>
-            </select>
-            <label style="display:block;margin:10px 0 5px;font-weight:600;">Batch Date</label>
-            <input type="date" name="batch_date" required
-              style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;margin-bottom:15px;">
-            <label style="display:block;margin:10px 0 5px;font-weight:600;">Expiration Date</label>
-            <input type="date" name="expired_date" required
-              style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;margin-bottom:15px;">
-            <label style="display:block;margin:10px 0 5px;font-weight:600;">Quantity</label>
-            <input type="number" name="quantity" required min="1" value="100"
-              style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;margin-bottom:15px;">
-            <label style="display:block;margin:10px 0 5px;font-weight:600;">Upload Image:</label>
-            <input type="file" name="image" required style="margin-bottom:15px;">
-            <button type="submit" name="add_medicine"
-              style="background:#1a73e8;color:white;padding:12px;border:none;border-radius:6px;width:100%;
-              font-size:16px;cursor:pointer;">
-              💊 Add Medicine
-            </button>
-          </div>
+          <label style="display:block;font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">Medicine Name</label>
+          <input type="text" name="name" required
+                 style="width:100%;height:42px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;margin-bottom:12px;outline:none;">
+          <label style="display:block;font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">Category</label>
+          <select name="type" required
+                  style="width:100%;height:42px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;margin-bottom:12px;outline:none;">
+            <option value="" disabled selected>Select Category</option>
+            <?php foreach ($categories as $cat): ?>
+              <option value="<?= $cat ?>"><?= $cat ?></option>
+            <?php endforeach; ?>
+          </select>
+          <label style="display:block;font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">Batch Date</label>
+          <input type="date" name="batch_date" required
+                 style="width:100%;height:42px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;margin-bottom:12px;outline:none;">
+          <label style="display:block;font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">Expiration Date</label>
+          <input type="date" name="expired_date" required
+                 style="width:100%;height:42px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;margin-bottom:12px;outline:none;">
+          <label style="display:block;font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">Quantity</label>
+          <input type="number" name="quantity" required min="1" value="100"
+                 style="width:100%;height:42px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;margin-bottom:12px;outline:none;">
+          <label style="display:block;font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">Image</label>
+          <input type="file" name="image" required style="margin-bottom:16px;font-size:0.85rem;">
+          <button type="submit" name="add_medicine" class="btn btn-add" style="width:100%;height:44px;font-size:0.9rem;">
+            <i class="fas fa-pills"></i> Add Medicine
+          </button>
         </form>
       </div>
     </div>
   </div>
+
 </div>
 
 <div id="content-expiration" class="content">
@@ -1618,167 +1608,125 @@ function showSection(name) {
     if (titleEl && sectionTitles[name]) titleEl.textContent = sectionTitles[name];
 }
 
-let currentInventoryView = 'search';
+// ── Unified inventory filter (category pill + search bar) ──
+let invActiveCategory = 'all';
+const INV_PAGE_SIZE = 5;
+let invCurrentPage  = 1;
 
-function toggleSearchTable() {
-    const container = document.getElementById('searchTableContainer');
-    const btn = document.getElementById('toggleSearchTableBtn');
-    if (container.style.display === 'none') {
-        container.style.display = 'block';
-        btn.innerHTML = '📊 Hide Medicine Table';
+function filterInventory(category, btn) {
+    invActiveCategory = category;
+    invCurrentPage    = 1;
+    document.querySelectorAll('.inv-pill').forEach(p => p.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    applyInventoryFilter();
+}
+
+function applyInventoryFilter() {
+    const search = (document.getElementById('inventory-search')?.value || '').toLowerCase();
+    const usePaging = invActiveCategory === 'all' && !search;
+
+    // collect matching rows
+    const allRows = [...document.querySelectorAll('#inventory-table tbody tr')];
+    const matched = allRows.filter(row => {
+        const cat      = row.dataset.category || '';
+        const catMatch = invActiveCategory === 'all' || cat === invActiveCategory;
+        const nameMatch = !search || row.textContent.toLowerCase().includes(search);
+        return catMatch && nameMatch;
+    });
+
+    // hide all first
+    allRows.forEach(r => r.style.display = 'none');
+
+    if (usePaging) {
+        // paginate
+        const total     = matched.length;
+        const totalPages = Math.ceil(total / INV_PAGE_SIZE);
+        invCurrentPage  = Math.min(invCurrentPage, totalPages || 1);
+        const start     = (invCurrentPage - 1) * INV_PAGE_SIZE;
+        const end       = Math.min(start + INV_PAGE_SIZE, total);
+        matched.slice(start, end).forEach(r => r.style.display = '');
+        renderPagination(total, totalPages, start + 1, end);
     } else {
-        container.style.display = 'none';
-        btn.innerHTML = '📊 Show Medicine Table';
+        // no paging when filtering by category or searching
+        matched.forEach(r => r.style.display = '');
+        hidePagination();
     }
+
+    const noResults = document.getElementById('inv-no-results');
+    if (noResults) noResults.style.display = matched.length === 0 ? 'block' : 'none';
 }
 
-function switchInventoryView(view) {
-    if (isGuest && view === 'manage') {
-        showToast("Guests cannot manage stock.", "error");
-        return;
+function renderPagination(total, totalPages, start, end) {
+    const pag   = document.getElementById('inv-pagination');
+    const info  = document.getElementById('inv-page-info');
+    const pages = document.getElementById('inv-pages');
+    if (!pag) return;
+    pag.style.display = total > INV_PAGE_SIZE ? 'flex' : 'none';
+    info.textContent  = `Showing ${start}–${end} of ${total}`;
+
+    pages.innerHTML = '';
+
+    // prev button
+    const prev = document.createElement('button');
+    prev.className  = 'inv-page-btn';
+    prev.innerHTML  = '&#8249;';
+    prev.disabled   = invCurrentPage === 1;
+    prev.onclick    = () => goToPage(invCurrentPage - 1);
+    pages.appendChild(prev);
+
+    // page number buttons (show max 5 around current)
+    const range = 2;
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= invCurrentPage - range && i <= invCurrentPage + range)) {
+            const btn = document.createElement('button');
+            btn.className  = 'inv-page-btn' + (i === invCurrentPage ? ' active' : '');
+            btn.textContent = i;
+            btn.onclick    = () => goToPage(i);
+            pages.appendChild(btn);
+        } else if (
+            (i === invCurrentPage - range - 1 && i > 1) ||
+            (i === invCurrentPage + range + 1 && i < totalPages)
+        ) {
+            const dots = document.createElement('button');
+            dots.className  = 'inv-page-btn';
+            dots.textContent = '…';
+            dots.disabled   = true;
+            pages.appendChild(dots);
+        }
     }
-    currentInventoryView = view;
-    document.getElementById('inventory-search-view').style.display = view === 'search' ? 'block' : 'none';
-    document.getElementById('inventory-manage-view').style.display = view === 'manage' ? 'block' : 'none';
-    
-    // Update button styles
-    document.getElementById('btn-search-view').style.background = view === 'search' ? '#1a73e8' : '#90a4ae';
-    document.getElementById('btn-manage-view').style.background = view === 'manage' ? '#4CAF50' : '#90a4ae';
+
+    // next button
+    const next = document.createElement('button');
+    next.className  = 'inv-page-btn';
+    next.innerHTML  = '&#8250;';
+    next.disabled   = invCurrentPage === totalPages;
+    next.onclick    = () => goToPage(invCurrentPage + 1);
+    pages.appendChild(next);
 }
 
-// Unified search that filters both views
-document.getElementById("inventory-search").addEventListener("keyup", function () {
-    const filter = this.value.toLowerCase();
+function goToPage(page) {
+    invCurrentPage = page;
+    applyInventoryFilter();
+    // scroll table into view
+    document.getElementById('inventory-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
-    // Search View: Hide entire category cards if no match
-    const categoryCards = document.querySelectorAll("#inventory-search-view .category-card");
-    categoryCards.forEach(card => {
-        const txt = card.textContent.toLowerCase();
-        card.style.display = txt.includes(filter) ? "flex" : "none";
-    });
+function hidePagination() {
+    const pag = document.getElementById('inv-pagination');
+    if (pag) pag.style.display = 'none';
+}
 
-    // Manage View: Filter table rows
-    const manageRows = document.querySelectorAll("#inventory-table tbody tr");
-    manageRows.forEach(row => {
-        const txt = row.textContent.toLowerCase();
-        row.style.display = txt.includes(filter) ? "" : "none";
-    });
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('inventory-search');
+    if (searchInput) searchInput.addEventListener('input', applyInventoryFilter);
+    applyInventoryFilter(); // ← add this line
 });
 
 Object.keys(buttons).forEach(key => {
     if (buttons[key]) buttons[key].addEventListener("click", () => showSection(key));
 });
 
-// Live search inside Inventory tab
-document.getElementById("inventory-search").addEventListener("keyup", function () {
-    const filter = this.value.toLowerCase();
-    const rows = document.querySelectorAll("#inventory-table tbody tr, #inventory-table tr:not(:first-child)");
-    rows.forEach(row => {
-        const txt = row.textContent.toLowerCase();
-        row.style.display = txt.includes(filter) ? "" : "none";
-    });
-});
-
-// Open Manage Category Modal
-function openManageCategoryModal(category) {
-    // Fetch medicines for this category via AJAX or build inline
-    const container = document.getElementById('manageCategoryTableContainer');
-    const title = document.getElementById('manageCategoryTitle');
-    title.textContent = `Manage: ${category}`;
-
-    // Build table rows
-    let rows = '';
-    <?php
-    // Reuse medsByCategory from earlier (or requery)
-    $manageMeds = [];
-    $res = $conn->query("SELECT * FROM medicines ORDER BY 
-        CASE WHEN expired_date < CURDATE() THEN 3
-             WHEN quantity <= 20 THEN 1
-             ELSE 2 END,
-        expired_date ASC");
-    while ($r = $res->fetch_assoc()) {
-        $manageMeds[] = $r;
-    }
-    $jsonMeds = json_encode($manageMeds);
-    ?>
-    const allMeds = <?php echo $jsonMeds; ?>;
-    const filtered = allMeds.filter(med => med.type === category);
-
-    if (filtered.length === 0) {
-        rows = `<tr><td colspan="8" style="text-align:center;padding:20px;color:#666;">No medicines in this category.</td></tr>`;
-    } else {
-        filtered.forEach(row => {
-            const expiryDate = new Date(row.expired_date);
-            const today = new Date();
-            const isExpired = expiryDate < today;
-            const isLowStock = !isExpired && row.quantity <= 20;
-            const status = isExpired ? '🔴 Expired' : (isLowStock ? '⚠️ Low Stock' : '✅ In Stock');
-            const rowClass = isExpired ? 'expiring-soon' : (isLowStock ? 'warning' : '');
-
-            let actions = '';
-            if (isExpired) {
-                actions = '<span style="color: #999; font-style: italic;">— Expired —</span>';
-            } else {
-                actions = `
-                  <form method="POST" style="display:inline;">
-                    <input type="hidden" name="id" value="${row.id}">
-                    <input type="hidden" name="action" value="add">
-                    <input type="number" name="change" placeholder="Qty" min="1" required style="width:60px;padding:5px;font-size:0.9rem;">
-                    <button type="submit" name="adjust_stock" class="stock-btn add-btn" style="font-size:0.9rem;padding:5px 8px;">➕ Add</button>
-                  </form>
-                  <form method="POST" style="display:inline;">
-                    <input type="hidden" name="id" value="${row.id}">
-                    <input type="hidden" name="action" value="use">
-                    <input type="number" name="change" placeholder="Qty" min="1" required style="width:60px;padding:5px;font-size:0.9rem;">
-                    <button type="submit" name="adjust_stock" class="stock-btn use-btn" onclick="return confirm('Use this stock?')" style="font-size:0.9rem;padding:5px 8px;">➖ Use</button>
-                  </form>
-                  <a href="#" onclick="openEditModal(${row.id})" class="edit-btn" style="color:#fff;background:#0288d1;padding:5px 8px;border-radius:4px;text-decoration:none;font-size:0.9rem;">Edit</a>
-                  <a href="#" onclick="openDeleteModal(${row.id}, '${row.name.replace(/'/g, "\\'")}')"
-                     class="delete-btn" style="color:#fff;background:#e53935;padding:5px 8px;border-radius:4px;text-decoration:none;font-size:0.9rem;">Delete</a>
-                `;
-            }
-
-            rows += `
-              <tr class="${rowClass}">
-                <td style="padding:12px;"><img src="uploads/medicines/${row.image}" width="40" alt="Medicine"></td>
-                <td style="padding:12px; word-break: break-word;">${row.name}</td>
-                <td style="padding:12px;">${row.type}</td>
-                <td style="padding:12px;">${row.batch_date}</td>
-                <td style="padding:12px;">${row.expired_date}</td>
-                <td style="padding:12px; text-align: center;">${row.quantity}</td>
-                <td style="padding:12px; font-weight: bold;">${status}</td>
-                <td style="padding:12px; display: flex; gap: 5px; flex-wrap: wrap;">${actions}</td>
-              </tr>
-            `;
-        });
-    }
-
-    container.innerHTML = `
-      <table style="width:100%; border-collapse: collapse; margin-top: 10px;">
-        <thead>
-          <tr style="background:#f0f4f8; border-bottom:2px solid #ddd;">
-            <th style="padding:12px;">Image</th>
-            <th style="padding:12px;">Name</th>
-            <th style="padding:12px;">Type</th>
-            <th style="padding:12px;">Batch Date</th>
-            <th style="padding:12px;">Expiry Date</th>
-            <th style="padding:12px; text-align:center;">Qty</th>
-            <th style="padding:12px;">Status</th>
-            <th style="padding:12px;">Actions</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
-
-    document.getElementById('manageCategoryModal').style.display = 'block';
-}
-
-function closeManageCategoryModal() {
-    document.getElementById('manageCategoryModal').style.display = 'none';
-}
-
-function openEditModal(id) {
+function openHistoryCategory(category) {
     if (isGuest) {
         showToast("Guests cannot edit medicines.", "error");
         return;
@@ -1841,76 +1789,6 @@ function filterExpiryTable() {
         const typeCell = row.cells[2]; // "Type" column
         row.style.display = !category || typeCell.textContent === category ? "" : "none";
     });
-}
-
-// Open Search Category Modal (read-only table)
-function openSearchCategoryModal(category) {
-    const container = document.getElementById('searchCategoryTableContainer');
-    const title = document.getElementById('searchCategoryTitle');
-    title.textContent = `Medicines: ${category}`;
-
-    let rows = '';
-    <?php
-    // Reuse sorted medicine data
-    $searchMeds = [];
-    $res = $conn->query("SELECT * FROM medicines ORDER BY 
-        CASE WHEN expired_date < CURDATE() THEN 3
-             WHEN quantity <= 20 THEN 1
-             ELSE 2 END,
-        expired_date ASC");
-    while ($r = $res->fetch_assoc()) {
-        $searchMeds[] = $r;
-    }
-    $jsonSearchMeds = json_encode($searchMeds);
-    ?>
-    const allMeds = <?php echo $jsonSearchMeds; ?>;
-    const filtered = allMeds.filter(med => med.type === category);
-
-    if (filtered.length === 0) {
-        rows = `<tr><td colspan="7" style="text-align:center;padding:20px;color:#666;">No medicines in this category.</td></tr>`;
-    } else {
-        filtered.forEach(row => {
-            const expiryDate = new Date(row.expired_date);
-            const today = new Date();
-            const isExpired = expiryDate < today;
-            const isLowStock = !isExpired && row.quantity <= 20;
-            const status = isExpired ? '🔴 Expired' : (isLowStock ? '⚠️ Low Stock' : '✅ In Stock');
-            const rowClass = isExpired ? 'expiring-soon' : (isLowStock ? 'warning' : '');
-
-            rows += `
-              <tr class="${rowClass}">
-                <td style="padding:12px;"><img src="uploads/medicines/${row.image}" width="40" alt="Medicine"></td>
-                <td style="padding:12px; word-break: break-word;">${row.name}</td>
-                <td style="padding:12px;">${row.batch_date}</td>
-                <td style="padding:12px;">${row.expired_date}</td>
-                <td style="padding:12px; text-align: center;">${row.quantity}</td>
-                <td style="padding:12px; font-weight: bold;">${status}</td>
-              </tr>
-            `;
-        });
-    }
-
-    container.innerHTML = `
-      <table style="width:100%; border-collapse: collapse; margin-top: 10px;">
-        <thead>
-          <tr style="background:#f0f4f8; border-bottom:2px solid #ddd;">
-            <th style="padding:12px;">Image</th>
-            <th style="padding:12px;">Name</th>
-            <th style="padding:12px;">Batch Date</th>
-            <th style="padding:12px;">Expiry Date</th>
-            <th style="padding:12px; text-align:center;">Qty</th>
-            <th style="padding:12px;">Status</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
-
-    document.getElementById('searchCategoryModal').style.display = 'block';
-}
-
-function closeSearchCategoryModal() {
-    document.getElementById('searchCategoryModal').style.display = 'none';
 }
 
 function openHistoryCategory(category) {
