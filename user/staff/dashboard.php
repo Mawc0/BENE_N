@@ -606,108 +606,115 @@ const commonOptions = {
         legend: {
             position: 'bottom',
             labels: {
-                boxWidth: 12,
-                padding: 8,
-                font: {
-                    size: 11
-                }
+                boxWidth: 10,
+                padding: 10,
+                font: { size: 11, family: "'DM Sans', sans-serif" },
+                color: '#6b7280'
             }
         },
         title: {
             display: true,
-            font: {
-                size: 13,
-                weight: 'bold'
-            },
-            padding: {
-                top: 5,
-                bottom: 5
-            }
+            font: { size: 12, weight: '600', family: "'DM Sans', sans-serif" },
+            color: '#5c0a0a',
+            padding: { top: 6, bottom: 8 }
         }
     }
 };
 
+// ── 1. Category Distribution (Bar) ──
 new Chart(document.getElementById('categoryChart'), {
     type: 'bar',
     data: {
         labels: <?php echo json_encode($categories); ?>,
         datasets: [{
-            label: 'Medicines by Category',
+            label: 'Medicines',
             data: <?php echo json_encode($categoryData); ?>,
-            backgroundColor: ['#4285f4', '#34a853', '#fbbc05', '#ea4335', '#46bdc6', '#7baaf7']
+            backgroundColor: [
+                'rgba(155,28,28,0.75)',
+                'rgba(198,40,40,0.65)',
+                'rgba(92,10,10,0.7)',
+                'rgba(201,168,76,0.7)',
+                'rgba(232,201,106,0.65)',
+                'rgba(123,16,16,0.6)'
+            ],
+            borderColor: [
+                '#9b1c1c','#c62828','#5c0a0a','#c9a84c','#e8c96a','#7b1010'
+            ],
+            borderWidth: 1.5,
+            borderRadius: 6,
+            borderSkipped: false
         }]
     },
     options: {
         ...commonOptions,
         plugins: {
             ...commonOptions.plugins,
-            title: {
-                ...commonOptions.plugins.title,
-                text: 'Medicine Distribution by Category'
-            }
+            title: { ...commonOptions.plugins.title, text: 'Medicines by Category' }
         },
         scales: {
             y: {
                 beginAtZero: true,
-                ticks: {
-                    font: { size: 11 }
-                }
+                grid: { color: 'rgba(0,0,0,0.05)' },
+                ticks: { font: { size: 11 }, color: '#9a8a85' }
             },
             x: {
-                ticks: {
-                    font: { size: 11 }
-                }
+                grid: { display: false },
+                ticks: { font: { size: 11 }, color: '#9a8a85' }
             }
         }
     }
 });
 
+// ── 2. Expiry Status (Pie) ──
 new Chart(document.getElementById('expiryChart'), {
     type: 'pie',
     data: {
         labels: ['Valid', 'Expired'],
         datasets: [{
             data: [<?php echo $valid; ?>, <?php echo $expired; ?>],
-            backgroundColor: ['#34a853', '#ea4335']
+            backgroundColor: ['rgba(5,150,105,0.8)', 'rgba(198,40,40,0.8)'],
+            borderColor: ['#059669', '#c62828'],
+            borderWidth: 2,
+            hoverOffset: 6
         }]
     },
     options: {
         ...commonOptions,
         plugins: {
             ...commonOptions.plugins,
-            title: {
-                ...commonOptions.plugins.title,
-                text: 'Medicine Expiry Status'
-            }
+            title: { ...commonOptions.plugins.title, text: 'Medicine Expiry Status' }
         }
     }
 });
 
+// ── 3. Stock Levels (Doughnut) ──
 new Chart(document.getElementById('stockLevelsChart'), {
     type: 'doughnut',
     data: {
-        labels: ['Low Stock (≤20)', 'Normal (21-50)', 'High (>50)'],
+        labels: ['Low Stock (≤20)', 'Normal (21–50)', 'High (>50)'],
         datasets: [{
-            data: [
-                <?php echo $lowStock; ?>,
-                <?php echo $normalStock; ?>,
-                <?php echo $highStock; ?>
+            data: [<?php echo $lowStock; ?>, <?php echo $normalStock; ?>, <?php echo $highStock; ?>],
+            backgroundColor: [
+                'rgba(198,40,40,0.82)',
+                'rgba(201,168,76,0.8)',
+                'rgba(5,150,105,0.78)'
             ],
-            backgroundColor: ['#ea4335', '#fbbc05', '#34a853']
+            borderColor: ['#c62828', '#c9a84c', '#059669'],
+            borderWidth: 2,
+            hoverOffset: 6
         }]
     },
     options: {
         ...commonOptions,
+        cutout: '62%',
         plugins: {
             ...commonOptions.plugins,
-            title: {
-                ...commonOptions.plugins.title,
-                text: 'Stock Level Distribution'
-            }
+            title: { ...commonOptions.plugins.title, text: 'Stock Level Distribution' }
         }
     }
 });
 
+// ── 4. Monthly Expiry Trend (Line) ──
 new Chart(document.getElementById('expiryTrendChart'), {
     type: 'line',
     data: {
@@ -715,32 +722,32 @@ new Chart(document.getElementById('expiryTrendChart'), {
         datasets: [{
             label: 'Expiring Medicines',
             data: <?php echo json_encode($counts); ?>,
-            borderColor: '#4285f4',
-            tension: 0.1
+            borderColor: '#9b1c1c',
+            backgroundColor: 'rgba(155,28,28,0.08)',
+            pointBackgroundColor: '#c62828',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            tension: 0.35,
+            fill: true
         }]
     },
     options: {
         ...commonOptions,
         plugins: {
             ...commonOptions.plugins,
-            title: {
-                ...commonOptions.plugins.title,
-                text: 'Monthly Expiry Trend'
-            }
+            title: { ...commonOptions.plugins.title, text: 'Monthly Expiry Trend' }
         },
         scales: {
             y: {
                 beginAtZero: true,
-                ticks: {
-                    font: { size: 11 }
-                }
+                grid: { color: 'rgba(0,0,0,0.05)' },
+                ticks: { font: { size: 11 }, color: '#9a8a85' }
             },
             x: {
-                ticks: {
-                    font: { size: 11 },
-                    maxRotation: 45,
-                    minRotation: 45
-                }
+                grid: { display: false },
+                ticks: { font: { size: 11 }, color: '#9a8a85', maxRotation: 45, minRotation: 45 }
             }
         }
     }
