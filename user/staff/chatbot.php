@@ -29,7 +29,8 @@ $tenMonths = date('Y-m-d', strtotime('+10 months'));
 $twelveMonths = date('Y-m-d', strtotime('+12 months'));
 
 // 🔍 Helper: Find medicine by name
-function findMedicine($input, $conn) {
+function findMedicine($input, $conn)
+{
     $stmt = $conn->query("SELECT name FROM medicines");
     while ($row = $stmt->fetch_assoc()) {
         if (stripos($input, strtolower($row['name'])) !== false) {
@@ -60,7 +61,7 @@ elseif (str_contains($lowerMsg, 'how many') && (str_contains($lowerMsg, 'expired
     $intent = 'total_medicines';
 } elseif (str_contains($lowerMsg, 'list') && str_contains($lowerMsg, 'category')) {
     $intent = 'list_categories';
-}elseif (str_contains($lowerMsg, 'how many') && str_contains($lowerMsg, 'categor')) {
+} elseif (str_contains($lowerMsg, 'how many') && str_contains($lowerMsg, 'categor')) {
     $intent = 'total_categories';
 } elseif ((str_contains($lowerMsg, 'stock') || str_contains($lowerMsg, 'how many')) && $medicine) {
     $intent = 'stock';
@@ -172,7 +173,8 @@ switch ($intent) {
     case 'list_categories':
         $stmt = $conn->query("SELECT name FROM categories ORDER BY name");
         $cats = [];
-        while ($row = $stmt->fetch_assoc()) $cats[] = $row['name'];
+        while ($row = $stmt->fetch_assoc())
+            $cats[] = $row['name'];
         $reply = "📋 **Categories**: " . implode(", ", $cats);
         break;
 

@@ -32,13 +32,13 @@ if ($result->num_rows > 0) {
         $isLowStock = !$isExpired && $balance <= 20;
         $status = $isExpired ? '🔴 Expired' : ($isLowStock ? '⚠️ Low Stock' : '✅ In Stock');
         $rowClass = $isExpired ? 'style="background-color:#ffebee;color:#c62828;"' : ($isLowStock ? 'style="background-color:#fff3e0;color:#ef6c00;"' : '');
-        
-    echo "<tr $rowClass>
+
+        echo "<tr $rowClass>
                 <td><img src='uploads/medicines/{$row['image']}' width='50' alt='Medicine'></td>
                 <td>{$row['name']}</td>
                 <td>{$row['batch_date']}</td>
                 <td>{$row['expired_date']}</td>
-                <td><strong>" . (int)$row['quantity'] . "</strong></td>
+                <td><strong>" . (int) $row['quantity'] . "</strong></td>
                 <td>$status</td>
             </tr>";
 

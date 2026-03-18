@@ -26,7 +26,7 @@ if ($action === 'get_counts') {
         $stmt->bind_param("s", $cat);
         $stmt->execute();
         $result = $stmt->get_result()->fetch_assoc();
-        $counts[$cat] = (int)$result['count'];
+        $counts[$cat] = (int) $result['count'];
         $stmt->close();
     }
     header('Content-Type: application/json');
@@ -71,7 +71,7 @@ if ($action === 'get_category') {
                     <td><strong>" . htmlspecialchars($row['name']) . "</strong></td>
                     <td>" . htmlspecialchars($row['batch_date']) . "</td>
                     <td style='color:#c62828; font-weight:bold;'>" . htmlspecialchars($row['expired_date']) . "</td>
-                    <td><strong>" . (int)$row['quantity_at_expiry'] . " units</strong></td>
+                    <td><strong>" . (int) $row['quantity_at_expiry'] . " units</strong></td>
                     <td style='color:#c62828; font-weight:bold;'>" . $label . "</td>
                   </tr>";
         }

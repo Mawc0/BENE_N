@@ -1372,7 +1372,8 @@ ORDER BY month
                     </td>
                     <td><?= htmlspecialchars($req['disposed_at']) ?></td>
                     <td style="max-width:300px;word-wrap:break-word;font-size:0.82rem;color:var(--text-muted);">
-                      <?= nl2br(htmlspecialchars($req['disposal_method'])) ?></td>
+                      <?= nl2br(htmlspecialchars($req['disposal_method'])) ?>
+                    </td>
                   </tr>
                 <?php endwhile; else: ?>
                 <tr>
