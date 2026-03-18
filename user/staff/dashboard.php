@@ -510,8 +510,7 @@ if ($userId) {
     <?php if (!$isGuest): ?>
     <div class="nav-section-label">Requests</div>
     <button class="nav-item" id="btn-donate"><i class="fas fa-hand-holding-medical"></i><span>Donate or Dispose</span></button>
-    <button class="nav-item" id="btn-donation-history"><i class="fas fa-clipboard-list"></i><span>Donation Requests</span></button>
-    <button class="nav-item" id="btn-disposal-history"><i class="fas fa-trash-alt"></i><span>Disposal Requests</span></button>
+    <button class="nav-item" id="btn-donation-history"><i class="fas fa-clipboard-list"></i><span>My Requests</span></button>
     <?php endif; ?>
   </nav>
   <div class="sidebar-footer">
@@ -1089,152 +1088,134 @@ new Chart(document.getElementById('expiryTrendChart'), {
 
 <!-- =============== 🎁 DONATION PAGE =============== -->
 <div id="content-donate" class="content">
-<h1>♻️ Donate or Dispose Expiring Supplies</h1>
-<p>Manage expiring medical supplies: <strong>Donate</strong> items expiring in 10–12 months, or <strong>Dispose</strong> those expiring within 10 months.</p>
-<div style="margin: 20px 0; padding: 15px; background:#e8f5e9; border-radius:8px; border-left:4px solid #4caf50;">
-<h3>♻️ Disposal & Repurposing Tips</h3>
-<ul style="margin: 10px 0; padding-left: 20px;">
-<li>
-    <strong class="video-hover" data-video="https://www.youtube.com/embed/dzc46-tLwSw?si=1BECjeCXBXFYW9hw">
-        Antibiotic / Pain Reliever / Vitamins
-    </strong>:
-    Mix with coffee grounds or cat litter, seal in bag, dispose in trash.
-</li>
-<li>
-    <strong class="video-hover" data-video="https://www.youtube.com/embed/_2rIPBO8oQQ?si=_X8IFelf1WzJs45_">
-        Injection
-    </strong>: 
-    Use sharps container. Do not reuse.
-</li>
-<li>
-    <strong class="video-hover" data-video="https://www.youtube.com/embed/wTIhYUWX-p0?si=WBMFNMK99YUOMTrk">
-        Antiseptic (liquid)
-    </strong>: 
-    Small amounts down drain. Bottles → rinse & recycle.
-</li>
-<li>
-    <strong class="video-hover" data-video="https://www.youtube.com/embed/WcYEbAc4Cl0?si=gEAxWnzTFrWy6WhP">
-        Other / Bottles
-    </strong>: 
-    Rinse thoroughly. Recycle per local rules.
-</li>
-</ul>
-<p style="font-size:0.9em; color:#555;">⚠️ Always follow local regulations for medical waste disposal.</p>
-</div>
-<!-- Toggle Buttons -->
-<div style="margin: 20px 0; display: flex; gap: 10px;">
-  <button id="showDonateBtn" class="stock-btn" style="background:#9c27b0;" onclick="showDonateTable()">🎁 Show Donation-Eligible (10–12 mo)</button>
-  <button id="showDisposeBtn" class="stock-btn" style="background:#e53935;" onclick="showDisposeTable()">🗑️ Show Disposal-Eligible (≤10 mo)</button>
-</div>
+  <h1>Donate or Dispose</h1>
 
-<!-- Donation Table (Default) -->
-<table id="donate-table">
-  <tr>
-    <th>Image</th><th>Name</th><th>Category</th><th>Expiry Date</th><th>Time Left</th><th>Quantity</th><th>Action</th>
-  </tr>
-  <?php
-  $today = date('Y-m-d');
-  $twelveMonths = date('Y-m-d', strtotime('+12 months'));
-  $tenMonths = date('Y-m-d', strtotime('+10 months'));
+  <!-- collapsible tips -->
+  <details style="margin-bottom:1.2rem;">
+    <summary style="cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--red-dark);
+                    padding:0.7rem 1rem;background:#fdf4f4;border:1px solid #f0d8d8;
+                    border-radius:8px;list-style:none;display:flex;align-items:center;gap:8px;">
+      <i class="fas fa-info-circle" style="color:var(--red-light);"></i>
+      Disposal &amp; Repurposing Tips <span style="margin-left:auto;font-size:0.75rem;color:var(--text-muted);">click to expand</span>
+    </summary>
+    <div style="padding:1rem;background:#fdf9f9;border:1px solid #f0d8d8;border-top:none;border-radius:0 0 8px 8px;font-size:0.84rem;color:var(--text-muted);line-height:1.8;">
+      <ul style="padding-left:1.2rem;">
+        <li><strong class="video-hover" style="color:var(--red-dark);cursor:pointer;" data-video="https://www.youtube.com/embed/dzc46-tLwSw?si=1BECjeCXBXFYW9hw">Antibiotic / Pain Reliever / Vitamins</strong>: Mix with coffee grounds or cat litter, seal in bag, dispose in trash.</li>
+        <li><strong class="video-hover" style="color:var(--red-dark);cursor:pointer;" data-video="https://www.youtube.com/embed/_2rIPBO8oQQ?si=_X8IFelf1WzJs45_">Injection</strong>: Use sharps container. Do not reuse.</li>
+        <li><strong class="video-hover" style="color:var(--red-dark);cursor:pointer;" data-video="https://www.youtube.com/embed/wTIhYUWX-p0?si=WBMFNMK99YUOMTrk">Antiseptic (liquid)</strong>: Small amounts down drain. Bottles → rinse &amp; recycle.</li>
+        <li><strong class="video-hover" style="color:var(--red-dark);cursor:pointer;" data-video="https://www.youtube.com/embed/WcYEbAc4Cl0?si=gEAxWnzTFrWy6WhP">Other / Bottles</strong>: Rinse thoroughly. Recycle per local rules.</li>
+      </ul>
+      <p style="margin-top:0.6rem;font-size:0.78rem;color:#b45309;">&#9888; Always follow local regulations for medical waste disposal.</p>
+    </div>
+  </details>
 
-  // Donation: >10 months AND ≤12 months from now
-  $donateQuery = $conn->query("
-    SELECT * FROM medicines
-    WHERE expired_date > '$tenMonths'
-      AND expired_date <= '$twelveMonths'
-    ORDER BY expired_date ASC
-  ");
-  if ($donateQuery && $donateQuery->num_rows > 0):
-    while ($med = $donateQuery->fetch_assoc()):
-      $expDate = new DateTime($med['expired_date']);
-      $now = new DateTime();
-      $interval = $now->diff($expDate);
-      $totalMonths = $interval->y * 12 + $interval->m;
-      $days = $interval->d;
-      $displayTime = "$totalMonths month" . ($totalMonths != 1 ? 's' : '');
-      if ($days > 0) $displayTime .= " $days day" . ($days != 1 ? 's' : '');
-  ?>
-  <tr>
-    <td><img src="uploads/medicines/<?= htmlspecialchars($med['image']) ?>" width="50" alt="Medicine"></td>
-    <td><?= htmlspecialchars($med['name']) ?></td>
-    <td><?= htmlspecialchars($med['type']) ?></td>
-    <td><?= htmlspecialchars($med['expired_date']) ?></td>
-    <td style="color: #9c27b0; font-weight: bold;"><?= $displayTime ?></td>
-    <td><?= (int)$med['quantity'] ?></td>
-    <td>
-<?php
-// Check if a pending donation request already exists
-$pendingCheck = $conn->prepare("
-    SELECT id FROM donation_requests 
-    WHERE medicine_id = ? AND staff_id = ? AND status = 'pending'
-");
-$pendingCheck->bind_param("ii", $med['id'], $userId);
-$pendingCheck->execute();
-$isPending = $pendingCheck->get_result()->num_rows > 0;
-$pendingCheck->close();
+  <!-- sub-tab pills -->
+  <div style="display:flex;gap:8px;margin-bottom:1.2rem;">
+    <button class="inv-pill active" id="donate-pill" onclick="switchDonateView('donate', this)">
+      <i class="fas fa-gift" style="margin-right:5px;"></i>Donate <span style="font-size:0.7rem;opacity:0.75;">(10–12 mo)</span>
+    </button>
+    <button class="inv-pill" id="dispose-pill" onclick="switchDonateView('dispose', this)">
+      <i class="fas fa-trash-alt" style="margin-right:5px;"></i>Dispose <span style="font-size:0.7rem;opacity:0.75;">(≤10 mo)</span>
+    </button>
+  </div>
 
-if ($isPending): ?>
-  <span class="donate-btn" style="background: #9e9e9e; cursor: not-allowed;" title="Request already pending">
-    ⏳ Request Pending
-  </span>
-<?php else: ?>
-  <a href="staff_dashboard.php?donate=<?= (int)$med['id'] ?>"
-     class="donate-btn"
-     onclick="return confirm('Request donation for \"<?= htmlspecialchars($med['name']) ?>\"? Admin will review your request.')">
-    🎁 Donate
-  </a>
-<?php endif; ?>
-</td>
-  </tr>
-  <?php endwhile; ?>
-  <?php else: ?>
-  <tr><td colspan="7" style="text-align:center; color:#666; padding:20px;">No supplies eligible for donation.</td></tr>
-  <?php endif; ?>
-</table>
+  <!-- Donation Table -->
+  <div id="donate-view">
+    <div class="table-wrap">
+      <table id="donate-table">
+        <thead>
+          <tr><th>Image</th><th>Name</th><th>Category</th><th>Expiry Date</th><th>Time Left</th><th style="text-align:center;">Qty</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+        <?php
+        $today        = date('Y-m-d');
+        $twelveMonths = date('Y-m-d', strtotime('+12 months'));
+        $tenMonths    = date('Y-m-d', strtotime('+10 months'));
+        $donateQuery  = $conn->query("SELECT * FROM medicines WHERE expired_date > '$tenMonths' AND expired_date <= '$twelveMonths' ORDER BY expired_date ASC");
+        if ($donateQuery && $donateQuery->num_rows > 0):
+          while ($med = $donateQuery->fetch_assoc()):
+            $expDate     = new DateTime($med['expired_date']);
+            $now         = new DateTime();
+            $interval    = $now->diff($expDate);
+            $totalMonths = $interval->y * 12 + $interval->m;
+            $days        = $interval->d;
+            $displayTime = "$totalMonths mo" . ($days > 0 ? " $days d" : "");
+            $pendingCheck = $conn->prepare("SELECT id FROM donation_requests WHERE medicine_id = ? AND staff_id = ? AND status = 'pending'");
+            $pendingCheck->bind_param("ii", $med['id'], $userId);
+            $pendingCheck->execute();
+            $isPending = $pendingCheck->get_result()->num_rows > 0;
+            $pendingCheck->close();
+        ?>
+          <tr>
+            <td><img src="uploads/medicines/<?= htmlspecialchars($med['image']) ?>" width="44" height="44" style="border-radius:6px;object-fit:cover;" alt=""></td>
+            <td><?= htmlspecialchars($med['name']) ?></td>
+            <td><span style="background:#fef2f2;color:var(--red-dark);padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;"><?= htmlspecialchars($med['type']) ?></span></td>
+            <td><?= htmlspecialchars($med['expired_date']) ?></td>
+            <td style="color:#7b1fa2;font-weight:600;"><?= $displayTime ?></td>
+            <td style="text-align:center;font-weight:600;"><?= (int)$med['quantity'] ?></td>
+            <td>
+              <?php if ($isPending): ?>
+                <span class="btn btn-grey" style="cursor:not-allowed;opacity:0.7;" title="Already pending">
+                  <i class="fas fa-clock"></i> Pending
+                </span>
+              <?php else: ?>
+                <a href="staff_dashboard.php?donate=<?= (int)$med['id'] ?>" class="btn btn-purple"
+                   onclick="return confirm('Request donation for &quot;<?= htmlspecialchars($med['name']) ?>&quot;?')">
+                  <i class="fas fa-gift"></i> Donate
+                </a>
+              <?php endif; ?>
+            </td>
+          </tr>
+        <?php endwhile; else: ?>
+          <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No supplies eligible for donation.</td></tr>
+        <?php endif; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-<!-- Disposal Table (Hidden by default) -->
-<table id="dispose-table" style="display:none;">
-  <tr>
-    <th>Image</th><th>Name</th><th>Category</th><th>Expiry Date</th><th>Time Left</th><th>Quantity</th><th>Action</th>
-  </tr>
-  <?php
-  // Disposal: > today AND ≤10 months from now
-  $disposeQuery = $conn->query("
-    SELECT * FROM medicines
-    WHERE expired_date > '$today'
-      AND expired_date <= '$tenMonths'
-    ORDER BY expired_date ASC
-  ");
-  if ($disposeQuery && $disposeQuery->num_rows > 0):
-    while ($med = $disposeQuery->fetch_assoc()):
-      $expDate = new DateTime($med['expired_date']);
-      $now = new DateTime();
-      $interval = $now->diff($expDate);
-      $totalMonths = $interval->y * 12 + $interval->m;
-      $days = $interval->d;
-      $displayTime = "$totalMonths month" . ($totalMonths != 1 ? 's' : '');
-      if ($days > 0) $displayTime .= " $days day" . ($days != 1 ? 's' : '');
-      $color = ($totalMonths == 0 && $days <= 1) ? '#d32f2f' : '#e53935';
-  ?>
-  <tr>
-    <td><img src="uploads/medicines/<?= htmlspecialchars($med['image']) ?>" width="50" alt="Medicine"></td>
-    <td><?= htmlspecialchars($med['name']) ?></td>
-    <td><?= htmlspecialchars($med['type']) ?></td>
-    <td><?= htmlspecialchars($med['expired_date']) ?></td>
-    <td style="color: <?= $color ?>; font-weight: bold;"><?= $displayTime ?></td>
-    <td><?= (int)$med['quantity'] ?></td>
-    <td>
-  <button class="donate-btn" style="background:#e53935;" 
-          onclick="openDisposalModal(<?= (int)$med['id'] ?>, '<?= addslashes(htmlspecialchars($med['name'])) ?>')">
-    🗑️ Dispose
-  </button>
-</td>
-  </tr>
-  <?php endwhile; ?>
-  <?php else: ?>
-  <tr><td colspan="7" style="text-align:center; color:#666; padding:20px;">No supplies eligible for disposal.</td></tr>
-  <?php endif; ?>
-</table>
+  <!-- Disposal Table -->
+  <div id="dispose-view" style="display:none;">
+    <div class="table-wrap">
+      <table id="dispose-table">
+        <thead>
+          <tr><th>Image</th><th>Name</th><th>Category</th><th>Expiry Date</th><th>Time Left</th><th style="text-align:center;">Qty</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+        <?php
+        $disposeQuery = $conn->query("SELECT * FROM medicines WHERE expired_date > '$today' AND expired_date <= '$tenMonths' AND status != 'disposed' ORDER BY expired_date ASC");
+        if ($disposeQuery && $disposeQuery->num_rows > 0):
+          while ($med = $disposeQuery->fetch_assoc()):
+            $expDate     = new DateTime($med['expired_date']);
+            $now         = new DateTime();
+            $interval    = $now->diff($expDate);
+            $totalMonths = $interval->y * 12 + $interval->m;
+            $days        = $interval->d;
+            $displayTime = "$totalMonths mo" . ($days > 0 ? " $days d" : "");
+            $isUrgent    = ($totalMonths == 0 && $days <= 1);
+        ?>
+          <tr>
+            <td><img src="uploads/medicines/<?= htmlspecialchars($med['image']) ?>" width="44" height="44" style="border-radius:6px;object-fit:cover;" alt=""></td>
+            <td><?= htmlspecialchars($med['name']) ?></td>
+            <td><span style="background:#fef2f2;color:var(--red-dark);padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;"><?= htmlspecialchars($med['type']) ?></span></td>
+            <td><?= htmlspecialchars($med['expired_date']) ?></td>
+            <td style="color:<?= $isUrgent ? 'var(--red-light)' : '#d97706' ?>;font-weight:600;"><?= $displayTime ?></td>
+            <td style="text-align:center;font-weight:600;"><?= (int)$med['quantity'] ?></td>
+            <td>
+              <button class="btn btn-del"
+                      onclick="openDisposalModal(<?= (int)$med['id'] ?>, '<?= addslashes(htmlspecialchars($med['name'])) ?>')">
+                <i class="fas fa-trash-alt"></i> Dispose
+              </button>
+            </td>
+          </tr>
+        <?php endwhile; else: ?>
+          <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No supplies eligible for disposal.</td></tr>
+        <?php endif; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 
 
@@ -1323,105 +1304,93 @@ if ($isPending): ?>
 
 
 
-<!-- =============== 📦 DONATION HISTORY =============== -->
+<!-- =============== 📦 MY REQUESTS =============== -->
 <div id="content-donation-history" class="content">
-<h1>📦 Donation Requests</h1>
-<p>Track the status of your medicine donation requests.</p>
-<table>
-<tr>
-<th>Medicine</th>
-<th>Category</th>
-<th>Requested On</th>
-<th>Status</th>
-<th>Admin Response</th>
-</tr>
-<?php
-$historyQuery = $conn->query("
-SELECT dr.*, m.name AS med_name, m.type AS med_type
-FROM donation_requests dr
-JOIN medicines m ON dr.medicine_id = m.id
-WHERE dr.staff_id = $userId
-ORDER BY dr.requested_at DESC
-");
-if ($historyQuery && $historyQuery->num_rows > 0):
-while ($req = $historyQuery->fetch_assoc()):
-$statusClass = '';
-$statusText = '';
-switch ($req['status']) {
-    case 'approved':
-    $statusClass = 'status-approved';
-    $statusText = '✅ Approved';
-    break;
-    case 'rejected':
-    $statusClass = 'status-rejected';
-    $statusText = '❌ Rejected';
-    break;
-    default:
-    $statusClass = 'status-pending';
-    $statusText = '⏳ Pending';
-}
-?>
-<tr>
-<td><?= htmlspecialchars($req['med_name']) ?></td>
-<td><?= htmlspecialchars($req['med_type']) ?></td>
-<td><?= htmlspecialchars($req['requested_at']) ?></td>
-<td class="<?= $statusClass ?>"><?= $statusText ?></td>
-<td>
-<?php if ($req['status'] !== 'pending'): ?>
-<small>Responded on: <?= htmlspecialchars($req['approved_at']) ?></small>
-<?php else: ?>
-<em>Awaiting review</em>
-<?php endif; ?>
-</td>
-</tr>
-<?php endwhile; ?>
-<?php else: ?>
-<tr>
-<td colspan="5" style="text-align:center; padding:20px; color:#666;">
-You haven't submitted any donation requests yet.
-</td>
-</tr>
-<?php endif; ?>
-</table>
-</div>
+  <h1>My Requests</h1>
 
-<!-- =============== 🗑️ DISPOSAL HISTORY =============== -->
-<div id="content-disposal-history" class="content">
-  <h1>🗑️ Disposed Supplies </h1>
-  <p>Track how you disposed of expiring supplies.</p>
-  <table>
-    <tr>
-      <th>Medicine</th>
-      <th>Category</th>
-      <th>Disposed On</th>
-      <th>Disposal Method</th>
-    </tr>
-    <?php
-    $disposalQuery = $conn->query("
-        SELECT dr.*, m.name AS med_name, m.type AS med_type
-        FROM disposal_requests dr
-        JOIN medicines m ON dr.medicine_id = m.id
-        WHERE dr.staff_id = $userId
-        ORDER BY dr.disposed_at DESC
-    ");
-    if ($disposalQuery && $disposalQuery->num_rows > 0):
-        while ($req = $disposalQuery->fetch_assoc()):
-    ?>
-    <tr>
-      <td><?= htmlspecialchars($req['med_name']) ?></td>
-      <td><?= htmlspecialchars($req['med_type']) ?></td>
-      <td><?= htmlspecialchars($req['disposed_at']) ?></td>
-      <td style="max-width:300px; word-wrap:break-word;"><?= nl2br(htmlspecialchars($req['disposal_method'])) ?></td>
-    </tr>
-    <?php endwhile; ?>
-    <?php else: ?>
-    <tr>
-      <td colspan="4" style="text-align:center; padding:20px; color:#666;">
-        You haven't disposed of any items yet.
-      </td>
-    </tr>
-    <?php endif; ?>
-  </table>
+  <!-- sub-tab pills -->
+  <div style="display:flex;gap:8px;margin-bottom:1.2rem;">
+    <button class="inv-pill active" id="req-pill-donations" onclick="switchRequestView('donations', this)">
+      <i class="fas fa-gift" style="margin-right:5px;"></i>Donation Requests
+    </button>
+    <button class="inv-pill" id="req-pill-disposals" onclick="switchRequestView('disposals', this)">
+      <i class="fas fa-trash-alt" style="margin-right:5px;"></i>Disposal Records
+    </button>
+  </div>
+
+  <!-- Donation Requests -->
+  <div id="req-view-donations">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Medicine</th><th>Category</th><th>Requested On</th><th>Status</th><th>Admin Response</th></tr>
+        </thead>
+        <tbody>
+        <?php
+        $historyQuery = $conn->query("
+            SELECT dr.*, m.name AS med_name, m.type AS med_type
+            FROM donation_requests dr
+            JOIN medicines m ON dr.medicine_id = m.id
+            WHERE dr.staff_id = $userId
+            ORDER BY dr.requested_at DESC
+        ");
+        if ($historyQuery && $historyQuery->num_rows > 0):
+          while ($req = $historyQuery->fetch_assoc()):
+            switch ($req['status']) {
+                case 'approved': $statusHtml = '<span class="badge-approved"><i class="fas fa-check"></i> Approved</span>'; break;
+                case 'rejected': $statusHtml = '<span class="badge-expired"><i class="fas fa-times"></i> Rejected</span>'; break;
+                default:         $statusHtml = '<span class="badge-low"><i class="fas fa-clock"></i> Pending</span>';
+            }
+        ?>
+          <tr>
+            <td><?= htmlspecialchars($req['med_name']) ?></td>
+            <td><span style="background:#fef2f2;color:var(--red-dark);padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;"><?= htmlspecialchars($req['med_type']) ?></span></td>
+            <td><?= htmlspecialchars($req['requested_at']) ?></td>
+            <td><?= $statusHtml ?></td>
+            <td style="font-size:0.82rem;color:var(--text-muted);">
+              <?= $req['status'] !== 'pending' ? 'Responded: ' . htmlspecialchars($req['approved_at']) : '<em>Awaiting review</em>' ?>
+            </td>
+          </tr>
+        <?php endwhile; else: ?>
+          <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No donation requests yet.</td></tr>
+        <?php endif; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Disposal Records -->
+  <div id="req-view-disposals" style="display:none;">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Medicine</th><th>Category</th><th>Disposed On</th><th>Method</th></tr>
+        </thead>
+        <tbody>
+        <?php
+        $disposalQuery = $conn->query("
+            SELECT dr.*, m.name AS med_name, m.type AS med_type
+            FROM disposal_requests dr
+            JOIN medicines m ON dr.medicine_id = m.id
+            WHERE dr.staff_id = $userId
+            ORDER BY dr.disposed_at DESC
+        ");
+        if ($disposalQuery && $disposalQuery->num_rows > 0):
+          while ($req = $disposalQuery->fetch_assoc()):
+        ?>
+          <tr>
+            <td><?= htmlspecialchars($req['med_name']) ?></td>
+            <td><span style="background:#fef2f2;color:var(--red-dark);padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;"><?= htmlspecialchars($req['med_type']) ?></span></td>
+            <td><?= htmlspecialchars($req['disposed_at']) ?></td>
+            <td style="max-width:300px;word-wrap:break-word;font-size:0.82rem;color:var(--text-muted);"><?= nl2br(htmlspecialchars($req['disposal_method'])) ?></td>
+          </tr>
+        <?php endwhile; else: ?>
+          <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No disposal records yet.</td></tr>
+        <?php endif; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 </div>
@@ -1586,7 +1555,6 @@ const buttons = {
     expiration: document.getElementById("btn-expiration"),
     donate: document.getElementById("btn-donate"),
     donationHistory: document.getElementById("btn-donation-history"),
-    disposalHistory: document.getElementById("btn-disposal-history"),
 };
 const contents = {
     dashboard: document.getElementById("content-dashboard"),
@@ -1595,7 +1563,6 @@ const contents = {
     expiration: document.getElementById("content-expiration"),
     donate: document.getElementById("content-donate"),
     donationHistory: document.getElementById("content-donation-history"),
-    disposalHistory: document.getElementById("content-disposal-history"),
 };
 
 // Sidebar expand/collapse with topbar + main sync
@@ -1623,8 +1590,7 @@ const sectionTitles = {
     inventory:       'Inventory',
     expiration:      'Expiration Tracker',
     donate:          'Donate or Dispose',
-    donationHistory: 'Donation Requests',
-    disposalHistory: 'Disposal Requests',
+    donationHistory: 'My Requests',
 };
 
 function showSection(name) {
@@ -2071,18 +2037,18 @@ function closeLogoutModal() {
     document.getElementById('logoutModal').style.display = 'none';
 }
 
-function showDonateTable() {
-    document.getElementById('donate-table').style.display = 'table';
-    document.getElementById('dispose-table').style.display = 'none';
-    document.getElementById('showDonateBtn').style.background = '#7b1fa2';
-    document.getElementById('showDisposeBtn').style.background = '#e53935';
+function switchDonateView(view, btn) {
+    document.querySelectorAll('#donate-pill, #dispose-pill').forEach(p => p.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    document.getElementById('donate-view').style.display  = view === 'donate'  ? 'block' : 'none';
+    document.getElementById('dispose-view').style.display = view === 'dispose' ? 'block' : 'none';
 }
 
-function showDisposeTable() {
-    document.getElementById('donate-table').style.display = 'none';
-    document.getElementById('dispose-table').style.display = 'table';
-    document.getElementById('showDisposeBtn').style.background = '#c62828';
-    document.getElementById('showDonateBtn').style.background = '#9c27b0';
+function switchRequestView(view, btn) {
+    document.querySelectorAll('#req-pill-donations, #req-pill-disposals').forEach(p => p.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    document.getElementById('req-view-donations').style.display = view === 'donations' ? 'block' : 'none';
+    document.getElementById('req-view-disposals').style.display = view === 'disposals' ? 'block' : 'none';
 }
 
 function openDisposalModal(medId, medName) {
