@@ -512,6 +512,9 @@ if ($userId) {
     <button class="nav-item" id="btn-donate"><i class="fas fa-hand-holding-medical"></i><span>Donate or Dispose</span></button>
     <button class="nav-item" id="btn-donation-history"><i class="fas fa-clipboard-list"></i><span>My Requests</span></button>
     <?php endif; ?>
+
+    <div class="nav-section-label">Records</div>
+    <button class="nav-item" id="btn-history"><i class="fas fa-history"></i><span>Expired History</span></button>
   </nav>
   <div class="sidebar-footer">
     <button class="nav-item" onclick="openLogoutModal()" style="color:rgba(255,255,255,0.6);"><i class="fas fa-sign-out-alt"></i><span>Logout</span></button>
@@ -1395,6 +1398,81 @@ new Chart(document.getElementById('expiryTrendChart'), {
 
 </div>
 
+<!-- =============== 📋 EXPIRED HISTORY =============== -->
+<div id="content-history" class="content">
+  <h1>Expired History</h1>
+
+  <!-- toolbar: filters -->
+  <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:1rem;">
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <!-- category filter pills -->
+      <button class="inv-pill active" id="hist-pill-all" onclick="histFilter('all', this)">All</button>
+      <?php foreach ($categories as $cat): ?>
+        <button class="inv-pill" onclick="histFilter('<?= addslashes(htmlspecialchars($cat)) ?>', this)">
+          <?= htmlspecialchars($cat) ?>
+        </button>
+      <?php endforeach; ?>
+    </div>
+    <!-- search -->
+    <input type="text" id="history-search" placeholder="&#128269; Search by name..."
+           oninput="applyHistoryFilter()"
+           style="height:38px; padding:0 12px; border:1.5px solid var(--border);
+                  border-radius:8px; font-family:'DM Sans',sans-serif;
+                  font-size:0.88rem; outline:none; min-width:200px;
+                  transition:border-color 0.2s;"
+           onfocus="this.style.borderColor='var(--red)'"
+           onblur="this.style.borderColor='var(--border)'">
+  </div>
+
+  <!-- table -->
+  <div class="table-wrap">
+    <table id="history-table">
+      <thead>
+        <tr>
+          <th>Image</th>
+          <th>Name</th>
+          <th>Category</th>
+          <th>Batch Date</th>
+          <th>Expired On</th>
+          <th style="text-align:center;">Qty at Expiry</th>
+          <th>Recorded</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php
+        $histResult = $conn->query("SELECT * FROM expired_logs ORDER BY expired_date DESC");
+        if ($histResult && $histResult->num_rows > 0):
+          while ($row = $histResult->fetch_assoc()):
+            $today    = new DateTime();
+            $expDate  = new DateTime($row['expired_date']);
+            $daysAgo  = (int)$today->diff($expDate)->days;
+            $label    = $daysAgo === 0 ? 'Today' : ($daysAgo === 1 ? 'Yesterday' : $daysAgo . ' days ago');
+        ?>
+        <tr data-category="<?= htmlspecialchars($row['type']) ?>"
+            data-name="<?= strtolower(htmlspecialchars($row['name'])) ?>">
+          <td><img src="uploads/medicines/<?= htmlspecialchars($row['image']) ?>"
+                   width="44" height="44" style="border-radius:6px;object-fit:cover;" alt=""></td>
+          <td><?= htmlspecialchars($row['name']) ?></td>
+          <td><span style="background:#fef2f2;color:var(--red-dark);padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;"><?= htmlspecialchars($row['type']) ?></span></td>
+          <td><?= htmlspecialchars($row['batch_date']) ?></td>
+          <td style="color:var(--red-light);font-weight:600;"><?= htmlspecialchars($row['expired_date']) ?></td>
+          <td style="text-align:center;font-weight:600;"><?= (int)$row['quantity_at_expiry'] ?></td>
+          <td style="color:var(--text-muted);font-size:0.82rem;"><?= $label ?></td>
+        </tr>
+        <?php endwhile; else: ?>
+        <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No expired medicine records found.</td></tr>
+        <?php endif; ?>
+      </tbody>
+    </table>
+
+    <!-- pagination -->
+    <div class="inv-pagination" id="hist-pagination">
+      <span id="hist-page-info">Showing 1–10</span>
+      <div class="inv-pages" id="hist-pages"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Profile Menu -->
 <!-- Expiring Medicines Modal -->
 <div id="notificationModal" class="modal">
@@ -1555,6 +1633,7 @@ const buttons = {
     expiration: document.getElementById("btn-expiration"),
     donate: document.getElementById("btn-donate"),
     donationHistory: document.getElementById("btn-donation-history"),
+    history: document.getElementById("btn-history"),
 };
 const contents = {
     dashboard: document.getElementById("content-dashboard"),
@@ -1563,6 +1642,7 @@ const contents = {
     expiration: document.getElementById("content-expiration"),
     donate: document.getElementById("content-donate"),
     donationHistory: document.getElementById("content-donation-history"),
+    history: document.getElementById("content-history"),
 };
 
 // Sidebar expand/collapse with topbar + main sync
@@ -1591,6 +1671,7 @@ const sectionTitles = {
     expiration:      'Expiration Tracker',
     donate:          'Donate or Dispose',
     donationHistory: 'My Requests',
+    history:         'Expired History',
 };
 
 function showSection(name) {
@@ -1725,30 +1806,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (searchInput) searchInput.addEventListener('input', applyInventoryFilter);
     applyInventoryFilter();
     applyExpiryFilter();
+    applyHistoryFilter();
 });
 
 Object.keys(buttons).forEach(key => {
     if (buttons[key]) buttons[key].addEventListener("click", () => showSection(key));
 });
 
-function openHistoryCategory(category) {
-    if (isGuest) {
-        showToast("Guests cannot edit medicines.", "error");
-        return;
-    }
-
-    fetch('get_medicine.php?id=' + id)
-    .then(r => r.json())
-    .then(data => {
-        document.getElementById('edit_id').value = data.id;
-        document.getElementById('edit_name').value = data.name;
-        document.getElementById('edit_type').value = data.type;
-        document.getElementById('edit_batch_date').value = data.batch_date;
-        document.getElementById('edit_expired_date').value = data.expired_date;
-        document.getElementById('edit_quantity').value = data.quantity;
-        document.getElementById('editModal').style.display = 'block';
-    });
-}
 function closeEditModal() {
     document.getElementById('editModal').style.display = 'none';
 }
@@ -1877,34 +1941,81 @@ function goToExpPage(page) {
     document.getElementById('expiry-full-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function openHistoryCategory(category) {
-    document.getElementById('historyCategoryTitle').textContent = `Expired: ${category}`;
-    document.getElementById('historyMedicines').innerHTML = '<p>Loading...</p>';
-    document.getElementById('historyModal').style.display = 'block';
-    fetch('history.php?action=get_category&category=' + encodeURIComponent(category))
-    .then(r => r.text())
-    .then(html => document.getElementById('historyMedicines').innerHTML = html);
-}
-function closeHistoryModal() {
-    document.getElementById('historyModal').style.display = 'none';
+// ── History filter + pagination ──
+let histActiveCategory = 'all';
+const HIST_PAGE_SIZE = 10;
+let histCurrentPage = 1;
+
+function histFilter(category, btn) {
+    histActiveCategory = category;
+    histCurrentPage = 1;
+    document.querySelectorAll('#content-history .inv-pill').forEach(p => p.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    applyHistoryFilter();
 }
 
-function loadHistoryCategories() {
-    fetch('history.php?action=get_counts')
-    .then(r => r.json())
-    .then(data => {
-        const container = document.getElementById('history-categories');
-        container.innerHTML = '';
-        Object.keys(data).forEach(cat => {
-            const count = data[cat];
-            const card = document.createElement('div');
-            card.className = 'category-card';
-            card.style.background = '#e53935';
-            card.onclick = () => openHistoryCategory(cat);
-            card.innerHTML = `<h3>${cat}</h3>${count ? `<span class="category-badge">${count}</span>` : ''}`;
-            container.appendChild(card);
-        });
+function applyHistoryFilter() {
+    const search = (document.getElementById('history-search')?.value || '').toLowerCase();
+    const rows = Array.from(document.querySelectorAll('#history-table tbody tr'));
+    const visible = rows.filter(row => {
+        const cat  = row.dataset.category || '';
+        const name = row.dataset.name || '';
+        const matchCat  = histActiveCategory === 'all' || cat === histActiveCategory;
+        const matchSearch = !search || name.includes(search);
+        row.style.display = (matchCat && matchSearch) ? '' : 'none';
+        return matchCat && matchSearch;
     });
+    renderHistPagination(visible);
+}
+
+function renderHistPagination(visibleRows) {
+    const total = visibleRows.length;
+    const totalPages = Math.max(1, Math.ceil(total / HIST_PAGE_SIZE));
+    histCurrentPage = Math.min(histCurrentPage, totalPages);
+    const start = (histCurrentPage - 1) * HIST_PAGE_SIZE;
+    const end   = start + HIST_PAGE_SIZE;
+
+    visibleRows.forEach((row, i) => {
+        row.style.display = (i >= start && i < end) ? '' : 'none';
+    });
+
+    const info  = document.getElementById('hist-page-info');
+    const pages = document.getElementById('hist-pages');
+    if (info)  info.textContent = total === 0 ? 'No records' : `Showing ${Math.min(start+1, total)}–${Math.min(end, total)} of ${total}`;
+    if (!pages) return;
+    pages.innerHTML = '';
+
+    const prev = document.createElement('button');
+    prev.className = 'inv-page-btn';
+    prev.textContent = '‹';
+    prev.disabled = histCurrentPage === 1;
+    prev.onclick = () => goToHistPage(histCurrentPage - 1);
+    pages.appendChild(prev);
+
+    for (let i = 1; i <= totalPages; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'inv-page-btn' + (i === histCurrentPage ? ' active' : '');
+        btn.textContent = i;
+        btn.onclick = () => goToHistPage(i);
+        pages.appendChild(btn);
+    }
+
+    const next = document.createElement('button');
+    next.className = 'inv-page-btn';
+    next.textContent = '›';
+    next.disabled = histCurrentPage === totalPages;
+    next.onclick = () => goToHistPage(histCurrentPage + 1);
+    pages.appendChild(next);
+}
+
+function goToHistPage(page) {
+    histCurrentPage = page;
+    applyHistoryFilter();
+}
+
+// kept for showSection compatibility — no longer fetches, just triggers filter
+function loadHistoryCategories() {
+    applyHistoryFilter();
 }
 
 function openModal() { document.getElementById("notificationModal").style.display = "block"; }

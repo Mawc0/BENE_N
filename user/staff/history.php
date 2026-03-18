@@ -2,7 +2,7 @@
 // history.php - Shows expired medicines from expired_logs (true history)
 
 // Database connection
-include "db.php";
+include "../../db.php";
 
 // Fetch dynamic categories from DB
 $categoryResult = $conn->query("SELECT name FROM categories ORDER BY id");
