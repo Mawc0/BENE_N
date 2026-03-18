@@ -40,99 +40,107 @@ $_SESSION['last_fact'] = $randomFact;
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>About | BENE MediCon</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600&family=DM+Sans:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="../styles/home.css">
 </head>
+
 <body>
 
-<!-- BACKGROUND GOLD ACCENTS -->
-<div class="bg">
-    <div class="bg-gold-bar"></div>
-    <div class="bg-gold-bar-bottom"></div>
-    <div class="bg-blob bg-blob-tl"></div>
-    <div class="bg-blob bg-blob-br"></div>
-    <div class="bg-gold-glow-tr"></div>
-    <div class="bg-gold-glow-bl"></div>
-    <div class="bg-ring bg-ring-1"></div>
-    <div class="bg-ring bg-ring-2"></div>
-    <div class="bg-ring bg-ring-3"></div>
-    <div class="bg-ring bg-ring-4"></div>
-    <div class="bg-ring bg-ring-5"></div>
-    <div class="bg-ring bg-ring-6"></div>
-</div>
-
-<div class="card">
-
-    <!-- LEFT -->
-    <div class="left">
-        <div class="blob blob-1"></div>
-        <div class="blob blob-2"></div>
-        <div class="blob blob-3"></div>
-        <div class="blob blob-4"></div>
-
-        <div class="top-bar">
-            <a href="user-manual.php" class="btn-manual btn-manual-view">&#128214; View Manual</a>
-            <a href="../docs/Users-Manual-Bene_MediCon.pdf" download class="btn-manual btn-manual-dl">&#8595; Download</a>
-        </div>
-
-        <div class="left-content">
-            <img src="../images/bene_medicon_logo.png" alt="BENE MediCon" class="medicine-img">
-            <h1 class="left-title">BENE <span>MediCon</span></h1>
-            <p class="left-subtitle">San Beda College Alabang</p>
-            <!-- <p class="motto">Fides · Scientia · Virtus</p> -->
-        </div>
+    <!-- BACKGROUND GOLD ACCENTS -->
+    <div class="bg">
+        <div class="bg-gold-bar"></div>
+        <div class="bg-gold-bar-bottom"></div>
+        <div class="bg-blob bg-blob-tl"></div>
+        <div class="bg-blob bg-blob-br"></div>
+        <div class="bg-gold-glow-tr"></div>
+        <div class="bg-gold-glow-bl"></div>
+        <div class="bg-ring bg-ring-1"></div>
+        <div class="bg-ring bg-ring-2"></div>
+        <div class="bg-ring bg-ring-3"></div>
+        <div class="bg-ring bg-ring-4"></div>
+        <div class="bg-ring bg-ring-5"></div>
+        <div class="bg-ring bg-ring-6"></div>
     </div>
 
-    <!-- RIGHT -->
-    <div class="right">
-        <h2>About Us</h2>
-        <p class="tagline">Healthcare Inventory Management System</p>
+    <div class="card">
 
-        <div class="trivia-card">
-            <div class="trivia-header">
-                <span class="trivia-label">Medical Trivia</span>
-                <button class="trivia-refresh" id="refreshBtn" onclick="refreshTrivia()">&#8635; New Fact</button>
+        <!-- LEFT -->
+        <div class="left">
+            <div class="blob blob-1"></div>
+            <div class="blob blob-2"></div>
+            <div class="blob blob-3"></div>
+            <div class="blob blob-4"></div>
+
+            <div class="top-bar">
+                <a href="user-manual.php" class="btn-manual btn-manual-view">&#128214; View Manual</a>
+                <a href="../docs/Users-Manual-Bene_MediCon.pdf" download class="btn-manual btn-manual-dl">&#8595;
+                    Download</a>
             </div>
-            <p id="trivia-text"><?= htmlspecialchars($randomFact) ?></p>
+
+            <div class="left-content">
+                <img src="../images/bene_medicon_logo.png" alt="BENE MediCon" class="medicine-img">
+                <h1 class="left-title">BENE <span>MediCon</span></h1>
+                <p class="left-subtitle">San Beda College Alabang</p>
+                <!-- <p class="motto">Fides · Scientia · Virtus</p> -->
+            </div>
         </div>
 
-        <div class="about-section">
-            <h3>What We Do</h3>
-            <p>BENE MediCon simplifies how healthcare staff and administrators at San Beda College Alabang manage and track medical supplies. Our platform provides secure login access for staff and administrators, ensuring support of handling medical inventory records. </p>
+        <!-- RIGHT -->
+        <div class="right">
+            <h2>About Us</h2>
+            <p class="tagline">Healthcare Inventory Management System</p>
+
+            <div class="trivia-card">
+                <div class="trivia-header">
+                    <span class="trivia-label">Medical Trivia</span>
+                    <button class="trivia-refresh" id="refreshBtn" onclick="refreshTrivia()">&#8635; New Fact</button>
+                </div>
+                <p id="trivia-text"><?= htmlspecialchars($randomFact) ?></p>
+            </div>
+
+            <div class="about-section">
+                <h3>What We Do</h3>
+                <p>BENE MediCon simplifies how healthcare staff and administrators at San Beda College Alabang manage
+                    and track medical supplies. Our platform provides secure login access for staff and administrators,
+                    ensuring support of handling medical inventory records. </p>
+            </div>
+
+            <div class="about-section">
+                <h3>Key Features</h3>
+                <ul class="feature-list">
+                    <li>Secure role-based access for staff &amp; admins</li>
+                    <li>Real-time medical inventory records</li>
+                    <li>User-friendly interface for daily operations</li>
+                    <li>Streamlined healthcare processes</li>
+                </ul>
+            </div>
+
+            <a href="login.php" class="btn-back">&#8592; Back to Login</a>
         </div>
 
-        <div class="about-section">
-            <h3>Key Features</h3>
-            <ul class="feature-list">
-                <li>Secure role-based access for staff &amp; admins</li>
-                <li>Real-time medical inventory records</li>
-                <li>User-friendly interface for daily operations</li>
-                <li>Streamlined healthcare processes</li>
-            </ul>
-        </div>
-
-        <a href="login.php" class="btn-back">&#8592; Back to Login</a>
     </div>
 
-</div>
-
-<script>
-function refreshTrivia() {
-    const btn = document.getElementById('refreshBtn');
-    btn.classList.add('spinning');
-    btn.disabled = true;
-    fetch('get_trivia.php')
-        .then(r => r.text())
-        .then(data => { document.getElementById('trivia-text').textContent = data; })
-        .catch(console.error)
-        .finally(() => setTimeout(() => { btn.classList.remove('spinning'); btn.disabled = false; }, 450));
-}
-</script>
+    <script>
+        function refreshTrivia() {
+            const btn = document.getElementById('refreshBtn');
+            btn.classList.add('spinning');
+            btn.disabled = true;
+            fetch('get_trivia.php')
+                .then(r => r.text())
+                .then(data => { document.getElementById('trivia-text').textContent = data; })
+                .catch(console.error)
+                .finally(() => setTimeout(() => { btn.classList.remove('spinning'); btn.disabled = false; }, 450));
+        }
+    </script>
 </body>
+
 </html>
