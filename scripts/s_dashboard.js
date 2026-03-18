@@ -97,6 +97,8 @@ function showSection(name) {
 
   const titleEl = document.getElementById("topbar-title");
   if (titleEl && sectionTitles[name]) titleEl.textContent = sectionTitles[name];
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 // ── Inventory filter + pagination ──

@@ -474,6 +474,10 @@ if ($userId) {
             Dispose</span></button>
         <button class="nav-item" id="btn-donation-history"><i class="fas fa-clipboard-list"></i><span>My
             Requests</span></button>
+
+        <div class="nav-section-label">Records</div>
+        <button class="nav-item" id="btn-expired-history"><i class="fas fa-history"></i><span>Expired Supply
+            History</span></button>
       <?php endif; ?>
     </nav>
     <div class="sidebar-footer">
@@ -1387,191 +1391,394 @@ ORDER BY month
       </div>
     </div>
 
-  </div>
+    <!-- =============== 📋 EXPIRED SUPPLY HISTORY =============== -->
+    <div id="content-expired-history" class="content">
+      <h1>Expired Supply History</h1>
+      <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:1.2rem;">
+        A log of all medicines that have expired and been automatically removed from active inventory.
+      </p>
 
-  <!-- Profile Menu -->
-  <!-- Expiring Medicines Modal -->
-  <div id="notificationModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>⚠️ Medicines Expiring Within 1 Day</h3>
-        <span class="modal-close" onclick="closeModal()">&times;</span>
+      <!-- toolbar: search + category filter + export -->
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:1rem;">
+        <input type="text" id="exp-history-search" placeholder="&#128269; Search by name..." style="flex:1;min-width:180px;height:38px;padding:0 12px;
+                    border:1.5px solid var(--border);border-radius:8px;
+                    font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;
+                    transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--red)'"
+          onblur="this.style.borderColor='var(--border)'">
+
+        <select id="exp-history-category" onchange="applyExpiredHistoryFilter()" style="height:38px;padding:0 10px;border:1.5px solid var(--border);
+                     border-radius:8px;font-family:'DM Sans',sans-serif;
+                     font-size:0.85rem;color:var(--text-muted);outline:none;cursor:pointer;">
+          <option value="">All Categories</option>
+          <?php foreach ($categories as $cat): ?>
+            <option value="<?= htmlspecialchars($cat) ?>"><?= htmlspecialchars($cat) ?></option>
+          <?php endforeach; ?>
+        </select>
+
+        <a href="export_expired_history.php?format=excel" class="btn btn-add">
+          <i class="fas fa-file-excel"></i> Export
+        </a>
       </div>
-      <div class="modal-body">
-        <?php if ($expired_count > 0): ?>
-          <table>
+
+      <!-- table -->
+      <div class="table-wrap">
+        <table id="expired-history-table">
+          <thead>
             <tr>
               <th>Image</th>
               <th>Name</th>
-              <th>Type</th>
+              <th>Category</th>
               <th>Batch Date</th>
               <th>Expiry Date</th>
-              <th>Quantity</th>
-              <th>Status</th>
+              <th style="text-align:center;">Qty at Expiry</th>
+              <th>Date Recorded</th>
             </tr>
+          </thead>
+          <tbody>
             <?php
-            $expiring_meds = $conn->query("SELECT * FROM medicines WHERE expired_date <= CURDATE() + INTERVAL 1 DAY AND expired_date >= CURDATE()");
-            while ($med = $expiring_meds->fetch_assoc()):
-              $balance = $med['quantity'];
-              $status = $balance <= 20 ? '⚠️ Low Stock' : '✅ In Stock';
-              ?>
+            $expHistoryResult = $conn->query("
+            SELECT * FROM expired_logs
+            ORDER BY recorded_at DESC
+          ");
+            if ($expHistoryResult && $expHistoryResult->num_rows > 0):
+              while ($row = $expHistoryResult->fetch_assoc()):
+                ?>
+                <tr data-name="<?= strtolower(htmlspecialchars($row['name'])) ?>"
+                  data-category="<?= htmlspecialchars($row['type']) ?>">
+                  <td>
+                    <img src="../../uploads/medicines/<?= htmlspecialchars($row['image']) ?>" width="44" height="44"
+                      style="border-radius:6px;object-fit:cover;" onerror="this.style.display='none'" alt="">
+                  </td>
+                  <td><?= htmlspecialchars($row['name']) ?></td>
+                  <td>
+                    <span style="background:#fef2f2;color:var(--red-dark);padding:2px 8px;
+                           border-radius:10px;font-size:0.75rem;font-weight:600;">
+                      <?= htmlspecialchars($row['type']) ?>
+                    </span>
+                  </td>
+                  <td><?= htmlspecialchars($row['batch_date']) ?></td>
+                  <td style="color:var(--red-light);font-weight:600;">
+                    <?= htmlspecialchars($row['expired_date']) ?>
+                  </td>
+                  <td style="text-align:center;font-weight:600;">
+                    <?= (int) $row['quantity_at_expiry'] ?>
+                  </td>
+                  <td style="color:var(--text-muted);font-size:0.83rem;">
+                    <?= htmlspecialchars($row['recorded_at']) ?>
+                  </td>
+                </tr>
+              <?php endwhile; else: ?>
               <tr>
-                <td><img src="uploads/medicines/<?php echo htmlspecialchars($med['image']); ?>" width="50"></td>
-                <td><?php echo htmlspecialchars($med['name']); ?></td>
-                <td><?php echo htmlspecialchars($med['type']); ?></td>
-                <td><?php echo htmlspecialchars($med['batch_date']); ?></td>
-                <td><?php echo htmlspecialchars($med['expired_date']); ?></td>
-                <td><?php echo (int) $med['quantity']; ?></td>
-                <td><?= $status ?></td>
+                <td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem;">
+                  No expired supply records yet.
+                </td>
               </tr>
-            <?php endwhile; ?>
-          </table>
-        <?php else: ?>
-          <p>No medicines expiring within 1 day.</p>
-        <?php endif; ?>
+            <?php endif; ?>
+          </tbody>
+        </table>
+
+        <!-- pagination -->
+        <div class="inv-pagination" id="exp-history-pagination">
+          <span id="exp-history-page-info">Showing 1–10</span>
+          <div class="inv-pages" id="exp-history-pages"></div>
+        </div>
+      </div>
+
+      <p id="exp-history-no-results"
+        style="display:none;color:var(--text-muted);text-align:center;padding:1.5rem 0;font-size:0.88rem;">
+        No records match your search.
+      </p>
+    </div>
+
+    <!-- Profile Menu -->
+    <!-- Expiring Medicines Modal -->
+    <div id="notificationModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>⚠️ Medicines Expiring Within 1 Day</h3>
+          <span class="modal-close" onclick="closeModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+          <?php if ($expired_count > 0): ?>
+            <table>
+              <tr>
+                <th>Image</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Batch Date</th>
+                <th>Expiry Date</th>
+                <th>Quantity</th>
+                <th>Status</th>
+              </tr>
+              <?php
+              $expiring_meds = $conn->query("SELECT * FROM medicines WHERE expired_date <= CURDATE() + INTERVAL 1 DAY AND expired_date >= CURDATE()");
+              while ($med = $expiring_meds->fetch_assoc()):
+                $balance = $med['quantity'];
+                $status = $balance <= 20 ? '⚠️ Low Stock' : '✅ In Stock';
+                ?>
+                <tr>
+                  <td><img src="uploads/medicines/<?php echo htmlspecialchars($med['image']); ?>" width="50"></td>
+                  <td><?php echo htmlspecialchars($med['name']); ?></td>
+                  <td><?php echo htmlspecialchars($med['type']); ?></td>
+                  <td><?php echo htmlspecialchars($med['batch_date']); ?></td>
+                  <td><?php echo htmlspecialchars($med['expired_date']); ?></td>
+                  <td><?php echo (int) $med['quantity']; ?></td>
+                  <td><?= $status ?></td>
+                </tr>
+              <?php endwhile; ?>
+            </table>
+          <?php else: ?>
+            <p>No medicines expiring within 1 day.</p>
+          <?php endif; ?>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- Disposal Request Modal -->
-  <div id="disposalModal" class="modal">
-    <div class="modal-content" style="max-width: 500px;">
-      <div class="modal-header">
-        <h3>🗑️ Dispose of <span id="disposalMedName"></span></h3>
-        <span class="modal-close" onclick="closeDisposalModal()">&times;</span>
-      </div>
-      <form method="POST" action="staff_dashboard.php">
-        <input type="hidden" name="medicine_id" id="disposalMedId">
-        <div style="padding: 20px;">
-          <p><strong>How will you dispose of this item?</strong></p>
-          <label style="display:block; margin:10px 0;">
-            <input type="radio" name="disposal_method"
-              value="Mixed with coffee grounds/cat litter, sealed in bag, trashed" required>
-            Antibiotic / Pain Reliever / Vitamins
-          </label>
-          <label style="display:block; margin:10px 0;">
-            <input type="radio" name="disposal_method" value="Used sharps container" required>
-            Injection (sharps)
-          </label>
-          <label style="display:block; margin:10px 0;">
-            <input type="radio" name="disposal_method" value="Small amounts poured down drain; bottle rinsed & recycled"
-              required>
-            Antiseptic (liquid)
-          </label>
-          <label style="display:block; margin:10px 0;">
-            <input type="radio" name="disposal_method" value="Rinsed thoroughly and recycled per local rules" required>
-            Other / Bottles
-          </label>
-          <label style="display:block; margin:15px 0 5px; font-weight:bold;">
-            Or describe your method:
-          </label>
-          <textarea name="disposal_method" rows="3"
-            style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;"
-            placeholder="Describe how you will safely dispose of this item..."></textarea>
+    <!-- Disposal Request Modal -->
+    <div id="disposalModal" class="modal">
+      <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+          <h3>🗑️ Dispose of <span id="disposalMedName"></span></h3>
+          <span class="modal-close" onclick="closeDisposalModal()">&times;</span>
         </div>
-        <div style="text-align:right; padding:0 20px 20px;">
-          <button type="button" onclick="closeDisposalModal()"
-            style="padding:8px 16px; margin-right:10px; background:#9e9e9e; color:white; border:none; border-radius:4px;">Cancel</button>
-          <button type="submit" name="request_disposal"
-            style="padding:8px 16px; background:#e53935; color:white; border:none; border-radius:4px;">Confirm
-            Disposal</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Edit Modal -->
-  <div id="editModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>✏️ Edit Medicine</h3>
-        <span class="modal-close" onclick="closeEditModal()">&times;</span>
-      </div>
-      <div class="modal-body">
-        <form id="editForm" method="POST" action="staff_dashboard.php" enctype="multipart/form-data">
-          <input type="hidden" name="id" id="edit_id">
-          <label>Medicine Name</label>
-          <input type="text" name="name" id="edit_name" required style="width:100%;margin-bottom:10px;">
-          <label>Category</label>
-          <select name="type" id="edit_type" required style="width:100%;margin-bottom:10px;">
-            <?php foreach ($categories as $cat): ?>
-              <option value="<?php echo $cat; ?>"><?php echo $cat; ?></option>
-            <?php endforeach; ?>
-          </select>
-          <label>Batch Date</label>
-          <input type="date" name="batch_date" id="edit_batch_date" required style="width:100%;margin-bottom:10px;">
-          <label>Expiration Date</label>
-          <input type="date" name="expired_date" id="edit_expired_date" required style="width:100%;margin-bottom:10px;">
-          <label>Quantity</label>
-          <input type="number" name="quantity" id="edit_quantity" required min="1"
-            style="width:100%;margin-bottom:10px;">
-          <label>Change Image (Optional)</label>
-          <input type="file" name="image" style="margin-bottom:10px;">
-          <button type="submit" name="update_medicine"
-            style="background:#1a73e8;color:white;padding:10px;width:100%;border:none;border-radius:5px;">
-            💾 Update Medicine
-          </button>
+        <form method="POST" action="staff_dashboard.php">
+          <input type="hidden" name="medicine_id" id="disposalMedId">
+          <div style="padding: 20px;">
+            <p><strong>How will you dispose of this item?</strong></p>
+            <label style="display:block; margin:10px 0;">
+              <input type="radio" name="disposal_method"
+                value="Mixed with coffee grounds/cat litter, sealed in bag, trashed" required>
+              Antibiotic / Pain Reliever / Vitamins
+            </label>
+            <label style="display:block; margin:10px 0;">
+              <input type="radio" name="disposal_method" value="Used sharps container" required>
+              Injection (sharps)
+            </label>
+            <label style="display:block; margin:10px 0;">
+              <input type="radio" name="disposal_method"
+                value="Small amounts poured down drain; bottle rinsed & recycled" required>
+              Antiseptic (liquid)
+            </label>
+            <label style="display:block; margin:10px 0;">
+              <input type="radio" name="disposal_method" value="Rinsed thoroughly and recycled per local rules"
+                required>
+              Other / Bottles
+            </label>
+            <label style="display:block; margin:15px 0 5px; font-weight:bold;">
+              Or describe your method:
+            </label>
+            <textarea name="disposal_method" rows="3"
+              style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;"
+              placeholder="Describe how you will safely dispose of this item..."></textarea>
+          </div>
+          <div style="text-align:right; padding:0 20px 20px;">
+            <button type="button" onclick="closeDisposalModal()"
+              style="padding:8px 16px; margin-right:10px; background:#9e9e9e; color:white; border:none; border-radius:4px;">Cancel</button>
+            <button type="submit" name="request_disposal"
+              style="padding:8px 16px; background:#e53935; color:white; border:none; border-radius:4px;">Confirm
+              Disposal</button>
+          </div>
         </form>
       </div>
     </div>
-  </div>
 
-
-
-  <!-- Chatbot -->
-  <div class="chat-head" id="chatHead"><i class="fas fa-robot"></i></div>
-  <div class="chat-container" id="chatContainer">
-    <div class="chat-header">
-      <i class="fas fa-clinic-medical"></i> BENE Assist
-      <span class="chat-close" id="chatClose">&times;</span>
-    </div>
-    <div class="disclaimer">Powered by Groq, Model: llama-3.1-8b-instant</div>
-    <div id="chatbox">
-      <div class="message bot">
-        <img src="https://ui-avatars.com/api/?name=MedBot&background=007BFF&color=fff" class="avatar" alt="Bot">
-        <div class="message-text">
-          Welcome to Bene MediCon 👋 Your trusted partner in medical inventory management. How may I assist you today?
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>✏️ Edit Medicine</h3>
+          <span class="modal-close" onclick="closeEditModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+          <form id="editForm" method="POST" action="staff_dashboard.php" enctype="multipart/form-data">
+            <input type="hidden" name="id" id="edit_id">
+            <label>Medicine Name</label>
+            <input type="text" name="name" id="edit_name" required style="width:100%;margin-bottom:10px;">
+            <label>Category</label>
+            <select name="type" id="edit_type" required style="width:100%;margin-bottom:10px;">
+              <?php foreach ($categories as $cat): ?>
+                <option value="<?php echo $cat; ?>"><?php echo $cat; ?></option>
+              <?php endforeach; ?>
+            </select>
+            <label>Batch Date</label>
+            <input type="date" name="batch_date" id="edit_batch_date" required style="width:100%;margin-bottom:10px;">
+            <label>Expiration Date</label>
+            <input type="date" name="expired_date" id="edit_expired_date" required
+              style="width:100%;margin-bottom:10px;">
+            <label>Quantity</label>
+            <input type="number" name="quantity" id="edit_quantity" required min="1"
+              style="width:100%;margin-bottom:10px;">
+            <label>Change Image (Optional)</label>
+            <input type="file" name="image" style="margin-bottom:10px;">
+            <button type="submit" name="update_medicine"
+              style="background:#1a73e8;color:white;padding:10px;width:100%;border:none;border-radius:5px;">
+              💾 Update Medicine
+            </button>
+          </form>
         </div>
       </div>
     </div>
-    <div id="user-input">
-      <button id="micBtn" title="Click to speak">
-        <i class="fas fa-microphone"></i>
-      </button>
-      <input type="text" id="chatMessage" placeholder="Ask about medicine...">
-      <button id="sendBtn" onclick="sendChatbotMessage()">
-        <i class="fas fa-paper-plane"></i>
-      </button>
-    </div>
-  </div>
-
-  <script>
-    const isGuest = <?php echo json_encode($isGuest); ?>;
-  </script>
-  <script src="../../scripts/s_dashboard.js"></script>
 
 
-  <!-- Delete Confirmation Modal -->
-  <div id="deleteModal" class="modal">
-    <div class="modal-content" style="max-width: 400px;">
-      <div class="modal-header">
-        <h3 style="color: #e53935;">⚠️ Delete Medicine</h3>
-        <span class="modal-close" onclick="closeDeleteModal()">&times;</span>
+
+    <!-- Chatbot -->
+    <div class="chat-head" id="chatHead"><i class="fas fa-robot"></i></div>
+    <div class="chat-container" id="chatContainer">
+      <div class="chat-header">
+        <i class="fas fa-clinic-medical"></i> BENE Assist
+        <span class="chat-close" id="chatClose">&times;</span>
       </div>
-      <div class="modal-body">
-        <p style="margin-bottom: 20px;">Are you sure you want to delete "<span id="deleteMedicineName"></span>"?</p>
-        <div style="display: flex; gap: 10px; justify-content: flex-end;">
-          <button onclick="closeDeleteModal()"
-            style="padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; background: #9e9e9e; color: white;">Cancel</button>
-          <a id="confirmDelete" href="#"
-            style="padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; background: #e53935; color: white; text-decoration: none;">Delete</a>
+      <div class="disclaimer">Powered by Groq, Model: llama-3.1-8b-instant</div>
+      <div id="chatbox">
+        <div class="message bot">
+          <img src="https://ui-avatars.com/api/?name=MedBot&background=007BFF&color=fff" class="avatar" alt="Bot">
+          <div class="message-text">
+            Welcome to Bene MediCon 👋 Your trusted partner in medical inventory management. How may I assist you today?
+          </div>
+        </div>
+      </div>
+      <div id="user-input">
+        <button id="micBtn" title="Click to speak">
+          <i class="fas fa-microphone"></i>
+        </button>
+        <input type="text" id="chatMessage" placeholder="Ask about medicine...">
+        <button id="sendBtn" onclick="sendChatbotMessage()">
+          <i class="fas fa-paper-plane"></i>
+        </button>
+      </div>
+    </div>
+
+    <script>
+      const isGuest = <?php echo json_encode($isGuest); ?>;
+    </script>
+    <script src="../../scripts/s_dashboard.js"></script>
+    <script>
+      // ── Records section wiring ──
+      (function () {
+        const btnExpiredHistory = document.getElementById('btn-expired-history');
+        const contentExpiredHistory = document.getElementById('content-expired-history');
+
+        if (btnExpiredHistory && contentExpiredHistory) {
+          // Register in existing maps
+          buttons.expiredHistory = btnExpiredHistory;
+          contents.expiredHistory = contentExpiredHistory;
+          sectionTitles.expiredHistory = 'Expired Supply History';
+
+          btnExpiredHistory.addEventListener('click', () => showSection('expiredHistory'));
+        }
+
+        // ── Expired History filter + pagination ──
+        const EH_PAGE_SIZE = 10;
+        let ehCurrentPage = 1;
+
+        function applyExpiredHistoryFilter() {
+          const search = (document.getElementById('exp-history-search')?.value || '').toLowerCase();
+          const category = (document.getElementById('exp-history-category')?.value || '');
+          const allRows = [...document.querySelectorAll('#expired-history-table tbody tr')];
+
+          const matched = allRows.filter(row => {
+            const nameMatch = !search || (row.dataset.name || '').includes(search);
+            const catMatch = !category || (row.dataset.category || '') === category;
+            return nameMatch && catMatch;
+          });
+
+          allRows.forEach(r => r.style.display = 'none');
+
+          const total = matched.length;
+          const totalPages = Math.ceil(total / EH_PAGE_SIZE);
+          ehCurrentPage = Math.min(ehCurrentPage, totalPages || 1);
+          const start = (ehCurrentPage - 1) * EH_PAGE_SIZE;
+          const end = Math.min(start + EH_PAGE_SIZE, total);
+          matched.slice(start, end).forEach(r => r.style.display = '');
+
+          renderEHPagination(total, totalPages, start + 1, end);
+
+          const noResults = document.getElementById('exp-history-no-results');
+          if (noResults) noResults.style.display = matched.length === 0 ? 'block' : 'none';
+        }
+
+        function renderEHPagination(total, totalPages, start, end) {
+          const pag = document.getElementById('exp-history-pagination');
+          const info = document.getElementById('exp-history-page-info');
+          const pages = document.getElementById('exp-history-pages');
+          if (!pag) return;
+          pag.style.display = total > EH_PAGE_SIZE ? 'flex' : 'none';
+          info.textContent = total === 0 ? 'No results' : `Showing ${start}–${end} of ${total}`;
+
+          pages.innerHTML = '';
+
+          const prev = document.createElement('button');
+          prev.className = 'inv-page-btn';
+          prev.innerHTML = '&#8249;';
+          prev.disabled = ehCurrentPage === 1;
+          prev.onclick = () => { ehCurrentPage--; applyExpiredHistoryFilter(); };
+          pages.appendChild(prev);
+
+          const range = 2;
+          for (let i = 1; i <= totalPages; i++) {
+            if (i === 1 || i === totalPages || (i >= ehCurrentPage - range && i <= ehCurrentPage + range)) {
+              const btn = document.createElement('button');
+              btn.className = 'inv-page-btn' + (i === ehCurrentPage ? ' active' : '');
+              btn.textContent = i;
+              btn.onclick = () => { ehCurrentPage = i; applyExpiredHistoryFilter(); };
+              pages.appendChild(btn);
+            } else if (
+              (i === ehCurrentPage - range - 1 && i > 1) ||
+              (i === ehCurrentPage + range + 1 && i < totalPages)
+            ) {
+              const dots = document.createElement('button');
+              dots.className = 'inv-page-btn';
+              dots.textContent = '…';
+              dots.disabled = true;
+              pages.appendChild(dots);
+            }
+          }
+
+          const next = document.createElement('button');
+          next.className = 'inv-page-btn';
+          next.innerHTML = '&#8250;';
+          next.disabled = ehCurrentPage === totalPages;
+          next.onclick = () => { ehCurrentPage++; applyExpiredHistoryFilter(); };
+          pages.appendChild(next);
+        }
+
+        // expose for inline onchange on the category select
+        window.applyExpiredHistoryFilter = applyExpiredHistoryFilter;
+
+        // hook up search input + run on load
+        document.addEventListener('DOMContentLoaded', () => {
+          const searchInput = document.getElementById('exp-history-search');
+          if (searchInput) searchInput.addEventListener('input', () => {
+            ehCurrentPage = 1;
+            applyExpiredHistoryFilter();
+          });
+          applyExpiredHistoryFilter();
+        });
+      })();
+    </script>
+
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal">
+      <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-header">
+          <h3 style="color: #e53935;">⚠️ Delete Medicine</h3>
+          <span class="modal-close" onclick="closeDeleteModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+          <p style="margin-bottom: 20px;">Are you sure you want to delete "<span id="deleteMedicineName"></span>"?</p>
+          <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button onclick="closeDeleteModal()"
+              style="padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; background: #9e9e9e; color: white;">Cancel</button>
+            <a id="confirmDelete" href="#"
+              style="padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; background: #e53935; color: white; text-decoration: none;">Delete</a>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Toast container -->
-  <div id="toast-container"></div>
+    <!-- Toast container -->
+    <div id="toast-container"></div>
 </body>
 
 </html>
