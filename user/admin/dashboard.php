@@ -846,6 +846,6 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
 
 </div><!-- /main-content -->
 
-<script src="../../js/a_dashboard.js"></script>
+<script src="../../scripts/a_dashboard.js"></script>
 </body>
 </html>

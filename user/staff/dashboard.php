@@ -1547,7 +1547,7 @@ ORDER BY month
   <script>
     const isGuest = <?php echo json_encode($isGuest); ?>;
   </script>
-  <script src="../../js/s_dashboard.js"></script>
+  <script src="../../scripts/s_dashboard.js"></script>
 
 
   <!-- Delete Confirmation Modal -->
