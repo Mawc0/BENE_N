@@ -497,16 +497,30 @@ if ($userId) {
         <?php endif; ?>
       </button>
       <div class="topbar-divider"></div>
+      
+      <!-- profile -->
+
+      <?php
+      $pic      = $_SESSION['profile_pic'] ?? '';
+      $role     = $_SESSION['role'] ?? 'admin';
+      $fallback = $role === 'admin' ? 'A' : ($role === 'guest' ? 'G' : 'S');
+      ?>
+
       <div class="profile-menu">
         <button class="profile-btn" onclick="toggleProfileMenu()" type="button">
-          <img src="uploads/avatars/<?= htmlspecialchars($_SESSION['profile_pic'] ?? 'default.jpg') ?>" alt="Profile"
-            class="profile-avatar" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-          <div class="profile-avatar-initials" style="display:none;">
-            <?= strtoupper(substr($_SESSION['username'] ?? 'S', 0, 1)) ?>
-          </div>
+          <?php if (!empty($pic) && $pic !== 'default.jpg'): ?>
+            <img src="../../uploads/avatars/<?= htmlspecialchars($pic) ?>"
+                alt="Profile"
+                class="profile-avatar"
+                style="width:30px;height:30px;border-radius:8px;object-fit:cover;border:2px solid rgba(201,168,76,0.4);"
+                onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+            <div class="profile-avatar" style="display:none;"><?= $fallback ?></div>
+          <?php else: ?>
+            <div class="profile-avatar"><?= $fallback ?></div>
+          <?php endif; ?>
           <div class="profile-info">
-            <div class="p-name"><?= htmlspecialchars($_SESSION['username'] ?? 'Staff') ?></div>
-            <div class="p-role"><?= $isGuest ? 'Guest' : 'Staff Member' ?></div>
+            <div class="p-name"><?= htmlspecialchars($_SESSION['username'] ?? 'Admin') ?></div>
+            <div class="p-role"><?= ucfirst($role) ?></div>
           </div>
           <i class="fas fa-chevron-down profile-chevron"></i>
         </button>
