@@ -2,11 +2,11 @@
 session_start();
 
 // Database connection
-include('../../db.php');
+include ('../../db.php');
 
 // Access control: Only allow admins
 if (!isset($_SESSION['username']) || $_SESSION['role'] !== 'admin') {
-  header("Location: ../../home_pages/login.php");
+  header('Location: ../../home_pages/login.php');
   exit;
 }
 
@@ -18,7 +18,7 @@ $notifications = null;
 
 // Unread count
 $unreadCount = 0;
-$unreadRes = $conn->query("SELECT COUNT(*) AS c FROM notifications WHERE is_read = 0");
+$unreadRes = $conn->query('SELECT COUNT(*) AS c FROM notifications WHERE is_read = 0');
 if ($unreadRes) {
   $row = $unreadRes->fetch_assoc();
   $unreadCount = isset($row['c']) ? (int) $row['c'] : 0;
@@ -26,21 +26,21 @@ if ($unreadRes) {
 
 // Mark all read
 if ($page === 'notifications' && isset($_POST['mark_all_read'])) {
-  $conn->query("UPDATE notifications SET is_read = 1 WHERE is_read = 0");
+  $conn->query('UPDATE notifications SET is_read = 1 WHERE is_read = 0');
   $unreadCount = 0;
-  header("Location: dashboard.php?page=notifications");
+  header('Location: dashboard.php?page=notifications');
   exit();
 }
 
 // Fetch notifications
 if ($page === 'notifications') {
-  $notifications = $conn->query("
+  $notifications = $conn->query('
         SELECT n.*, u.username
         FROM notifications n
         LEFT JOIN users u ON n.user_id = u.id
         ORDER BY n.is_read ASC, n.created_at DESC
         LIMIT 50
-    ");
+    ');
 }
 
 // Add/update/delete users
@@ -53,25 +53,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $role = 'staff';
     if (empty($passwordRaw))
       $passwordRaw = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8);
-    $check = $conn->prepare("SELECT id FROM users WHERE username = ?");
-    $check->bind_param("s", $username);
+    $check = $conn->prepare('SELECT id FROM users WHERE username = ?');
+    $check->bind_param('s', $username);
     $check->execute();
     if ($check->get_result()->num_rows > 0) {
-      header("Location: dashboard.php?page=manage_users&msg=Username already exists");
+      header('Location: dashboard.php?page=manage_users&msg=Username already exists');
       exit();
     }
     $check->close();
     $password = password_hash($passwordRaw, PASSWORD_DEFAULT);
     $defaultPic = 'default.jpg';
     $forceChange = 1;
-    $stmt = $conn->prepare("INSERT INTO users (username, password, role, profile_pic, force_password_change) VALUES (?, ?, ?, ?, ?)");
-    $stmt->bind_param("ssssi", $username, $password, $role, $defaultPic, $forceChange);
+    $stmt = $conn->prepare('INSERT INTO users (username, password, role, profile_pic, force_password_change) VALUES (?, ?, ?, ?, ?)');
+    $stmt->bind_param('ssssi', $username, $password, $role, $defaultPic, $forceChange);
     if ($stmt->execute()) {
       $conn->query("INSERT INTO logs (user, action) VALUES ('admin', 'Added new user $username as $role')");
       header("Location: dashboard.php?page=manage_users&msg=User added successfully. Temporary password: $passwordRaw");
       exit();
     } else {
-      header("Location: dashboard.php?page=manage_users&msg=Error adding user: " . $stmt->error);
+      header('Location: dashboard.php?page=manage_users&msg=Error adding user: ' . $stmt->error);
       exit();
     }
     $stmt->close();
@@ -80,30 +80,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id = $_POST['id'];
     $username = trim($_POST['username']);
     $role = $_POST['role'];
-    $stmt = $conn->prepare("UPDATE users SET username=?, role=? WHERE id=?");
-    $stmt->bind_param("ssi", $username, $role, $id);
+    $stmt = $conn->prepare('UPDATE users SET username=?, role=? WHERE id=?');
+    $stmt->bind_param('ssi', $username, $role, $id);
     if ($stmt->execute())
-      $success_message = "User updated successfully.";
+      $success_message = 'User updated successfully.';
     else
-      $error_message = "Error: " . $stmt->error;
+      $error_message = 'Error: ' . $stmt->error;
     $stmt->close();
   }
   if (isset($_POST['delete_user'])) {
     $id = $_POST['id'];
-    $stmt = $conn->prepare("SELECT role FROM users WHERE id=?");
-    $stmt->bind_param("i", $id);
+    $stmt = $conn->prepare('SELECT role FROM users WHERE id=?');
+    $stmt->bind_param('i', $id);
     $stmt->execute();
     $roleRes = $stmt->get_result()->fetch_assoc();
     $stmt->close();
     if ($roleRes && $roleRes['role'] === 'admin') {
-      $error_message = "Cannot delete an admin account!";
+      $error_message = 'Cannot delete an admin account!';
     } else {
-      $stmt = $conn->prepare("DELETE FROM users WHERE id=?");
-      $stmt->bind_param("i", $id);
+      $stmt = $conn->prepare('DELETE FROM users WHERE id=?');
+      $stmt->bind_param('i', $id);
       if ($stmt->execute())
-        $success_message = "User deleted successfully.";
+        $success_message = 'User deleted successfully.';
       else
-        $error_message = "Error: " . $stmt->error;
+        $error_message = 'Error: ' . $stmt->error;
       $stmt->close();
     }
   }
@@ -114,17 +114,17 @@ if ($page === 'categories') {
   if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_category'])) {
     $newCat = trim($_POST['category_name']);
     if (!empty($newCat)) {
-      $stmt = $conn->prepare("SELECT id FROM categories WHERE LOWER(name) = LOWER(?)");
-      $stmt->bind_param("s", $newCat);
+      $stmt = $conn->prepare('SELECT id FROM categories WHERE LOWER(name) = LOWER(?)');
+      $stmt->bind_param('s', $newCat);
       $stmt->execute();
       if ($stmt->get_result()->num_rows === 0) {
-        $stmt = $conn->prepare("INSERT INTO categories (name) VALUES (?)");
-        $stmt->bind_param("s", $newCat);
+        $stmt = $conn->prepare('INSERT INTO categories (name) VALUES (?)');
+        $stmt->bind_param('s', $newCat);
         $stmt->execute();
         $conn->query("INSERT INTO logs (user, action) VALUES ('admin', 'Added category: $newCat')");
-        $success_message = "Category added successfully.";
+        $success_message = 'Category added successfully.';
       } else {
-        $error_message = "Category already exists.";
+        $error_message = 'Category already exists.';
       }
       $stmt->close();
     }
@@ -133,26 +133,26 @@ if ($page === 'categories') {
     $catId = (int) $_POST['id'];
     $newName = trim($_POST['category_name']);
     if (!empty($newName)) {
-      $stmt = $conn->prepare("SELECT id FROM categories WHERE LOWER(name) = LOWER(?) AND id != ?");
-      $stmt->bind_param("si", $newName, $catId);
+      $stmt = $conn->prepare('SELECT id FROM categories WHERE LOWER(name) = LOWER(?) AND id != ?');
+      $stmt->bind_param('si', $newName, $catId);
       $stmt->execute();
       if ($stmt->get_result()->num_rows === 0) {
-        $stmt = $conn->prepare("UPDATE categories SET name = ? WHERE id = ?");
-        $stmt->bind_param("si", $newName, $catId);
+        $stmt = $conn->prepare('UPDATE categories SET name = ? WHERE id = ?');
+        $stmt->bind_param('si', $newName, $catId);
         if ($stmt->execute()) {
           $conn->query("INSERT INTO logs (user, action) VALUES ('admin', 'Edited category ID $catId to \"$newName\"')");
-          $success_message = "Category updated successfully.";
+          $success_message = 'Category updated successfully.';
         } else {
-          $error_message = "Failed to update category.";
+          $error_message = 'Failed to update category.';
         }
       } else {
-        $error_message = "Category name already exists.";
+        $error_message = 'Category name already exists.';
       }
       $stmt->close();
     } else {
-      $error_message = "Category name cannot be empty.";
+      $error_message = 'Category name cannot be empty.';
     }
-    header("Location: dashboard.php?page=categories");
+    header('Location: dashboard.php?page=categories');
     exit();
   }
   if (isset($_GET['delete_cat'])) {
@@ -162,7 +162,7 @@ if ($page === 'categories') {
       $catName = $res->fetch_assoc()['name'];
       $conn->query("DELETE FROM categories WHERE id = $catId");
       $conn->query("INSERT INTO logs (user, action) VALUES ('admin', 'Deleted category: $catName')");
-      header("Location: dashboard.php?page=categories");
+      header('Location: dashboard.php?page=categories');
       exit();
     }
   }
@@ -173,17 +173,17 @@ if ($page === 'categories') {
     if ($res && $res->num_rows > 0)
       $editCategory = $res->fetch_assoc();
   }
-  $categories = $conn->query("SELECT * FROM categories ORDER BY id");
+  $categories = $conn->query('SELECT * FROM categories ORDER BY id');
 }
 
 // Medicines
-$where = "1=1";
-$search = "";
+$where = '1=1';
+$search = '';
 if ($page === 'medicines') {
-  if (isset($_GET['filter']) && $_GET['filter'] == "low_stock")
-    $where = "quantity <= 20 AND expired_date > CURDATE()";
-  elseif (isset($_GET['filter']) && $_GET['filter'] == "expiring")
-    $where = "expired_date <= CURDATE() + INTERVAL 7 DAY AND expired_date >= CURDATE()";
+  if (isset($_GET['filter']) && $_GET['filter'] == 'low_stock')
+    $where = 'quantity <= 20 AND expired_date > CURDATE()';
+  elseif (isset($_GET['filter']) && $_GET['filter'] == 'expiring')
+    $where = 'expired_date <= CURDATE() + INTERVAL 7 DAY AND expired_date >= CURDATE()';
   if (isset($_GET['search']) && !empty($_GET['search'])) {
     $search = $conn->real_escape_string($_GET['search']);
     $where .= " AND (name LIKE '%$search%' OR type LIKE '%$search%' OR CAST(quantity AS CHAR) LIKE '%$search%' OR DATE_FORMAT(expired_date, '%Y-%m-%d') LIKE '%$search%')";
@@ -193,11 +193,11 @@ if ($page === 'medicines') {
 
 // Dashboard stats
 if ($page === 'dashboard') {
-  $totalUsers = $conn->query("SELECT COUNT(*) AS total FROM users")->fetch_assoc()['total'] ?? 0;
-  $totalMeds = $conn->query("SELECT COUNT(*) AS total FROM medicines")->fetch_assoc()['total'] ?? 0;
-  $lowStockMeds = $conn->query("SELECT COUNT(*) AS total FROM medicines WHERE quantity <= 20 AND expired_date > CURDATE()")->fetch_assoc()['total'] ?? 0;
-  $expiringSoonMeds = $conn->query("SELECT COUNT(*) AS total FROM medicines WHERE expired_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)")->fetch_assoc()['total'] ?? 0;
-  $recentLogs = $conn->query("SELECT * FROM logs ORDER BY timestamp DESC LIMIT 5");
+  $totalUsers = $conn->query('SELECT COUNT(*) AS total FROM users')->fetch_assoc()['total'] ?? 0;
+  $totalMeds = $conn->query('SELECT COUNT(*) AS total FROM medicines')->fetch_assoc()['total'] ?? 0;
+  $lowStockMeds = $conn->query('SELECT COUNT(*) AS total FROM medicines WHERE quantity <= 20 AND expired_date > CURDATE()')->fetch_assoc()['total'] ?? 0;
+  $expiringSoonMeds = $conn->query('SELECT COUNT(*) AS total FROM medicines WHERE expired_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)')->fetch_assoc()['total'] ?? 0;
+  $recentLogs = $conn->query('SELECT * FROM logs ORDER BY timestamp DESC LIMIT 5');
 }
 
 // Donations
@@ -207,12 +207,12 @@ if ($page === 'donations') {
     $info = $conn->query("SELECT dr.staff_id, m.name AS med_name, u.username AS staff_name FROM donation_requests dr JOIN medicines m ON dr.medicine_id = m.id JOIN users u ON dr.staff_id = u.id WHERE dr.id = $reqId AND dr.status = 'pending'")->fetch_assoc();
     if ($info) {
       $conn->query("UPDATE donation_requests SET status='approved', approved_at=NOW() WHERE id=$reqId");
-      $stmt = $conn->prepare("INSERT INTO notifications (user_id, message, is_read, created_at) VALUES (?, ?, 0, NOW())");
+      $stmt = $conn->prepare('INSERT INTO notifications (user_id, message, is_read, created_at) VALUES (?, ?, 0, NOW())');
       $msg = "Your donation request for \"{$info['med_name']}\" has been approved by admin.";
-      $stmt->bind_param("is", $info['staff_id'], $msg);
+      $stmt->bind_param('is', $info['staff_id'], $msg);
       $stmt->execute();
       $conn->query("INSERT INTO logs (user, action) VALUES ('admin', 'Approved donation request for {$info['med_name']} by {$info['staff_name']}')");
-      header("Location: dashboard.php?page=donations");
+      header('Location: dashboard.php?page=donations');
       exit();
     }
   }
@@ -221,12 +221,12 @@ if ($page === 'donations') {
     $info = $conn->query("SELECT dr.staff_id, m.name AS med_name, u.username AS staff_name FROM donation_requests dr JOIN medicines m ON dr.medicine_id = m.id JOIN users u ON dr.staff_id = u.id WHERE dr.id = $reqId AND dr.status = 'pending'")->fetch_assoc();
     if ($info) {
       $conn->query("UPDATE donation_requests SET status='rejected', approved_at=NOW() WHERE id=$reqId");
-      $stmt = $conn->prepare("INSERT INTO notifications (user_id, message, is_read, created_at) VALUES (?, ?, 0, NOW())");
+      $stmt = $conn->prepare('INSERT INTO notifications (user_id, message, is_read, created_at) VALUES (?, ?, 0, NOW())');
       $msg = "Your donation request for \"{$info['med_name']}\" was rejected by admin.";
-      $stmt->bind_param("is", $info['staff_id'], $msg);
+      $stmt->bind_param('is', $info['staff_id'], $msg);
       $stmt->execute();
       $conn->query("INSERT INTO logs (user, action) VALUES ('admin', 'Rejected donation request for {$info['med_name']} by {$info['staff_name']}')");
-      header("Location: dashboard.php?page=donations");
+      header('Location: dashboard.php?page=donations');
       exit();
     }
   }
@@ -240,16 +240,16 @@ if ($page === 'manage_users') {
     if ($res && $res->num_rows > 0) {
       $row = $res->fetch_assoc();
       if ($row['role'] === 'admin') {
-        header("Location: dashboard.php?page=manage_users&msg=Cannot reset admin password");
+        header('Location: dashboard.php?page=manage_users&msg=Cannot reset admin password');
         exit;
       }
-      $tempPassword = "Temp" . rand(1000, 9999);
+      $tempPassword = 'Temp' . rand(1000, 9999);
       $hash = password_hash($tempPassword, PASSWORD_DEFAULT);
-      $stmt = $conn->prepare("UPDATE users SET password=?, force_password_change=1, force_security_setup=1, security_question=NULL, security_answer=NULL WHERE id=?");
-      $stmt->bind_param("si", $hash, $id);
+      $stmt = $conn->prepare('UPDATE users SET password=?, force_password_change=1, force_security_setup=1, security_question=NULL, security_answer=NULL WHERE id=?');
+      $stmt->bind_param('si', $hash, $id);
       $stmt->execute();
       $conn->query("INSERT INTO logs (user, action) VALUES ('admin', 'Reset password for " . $row['username'] . "')");
-      header("Location: dashboard.php?page=manage_users&msg=Password reset for " . $row['username'] . ". Temporary password: $tempPassword");
+      header('Location: dashboard.php?page=manage_users&msg=Password reset for ' . $row['username'] . ". Temporary password: $tempPassword");
       exit;
     }
   }
@@ -261,34 +261,34 @@ if ($page === 'manage_users') {
   }
   $search = $_GET['search'] ?? '';
   if (trim($search) !== '') {
-    $stmt = $conn->prepare("SELECT * FROM users WHERE username LIKE ? OR role LIKE ? ORDER BY created_at DESC");
+    $stmt = $conn->prepare('SELECT * FROM users WHERE username LIKE ? OR role LIKE ? ORDER BY created_at DESC');
     $like = "%$search%";
-    $stmt->bind_param("ss", $like, $like);
+    $stmt->bind_param('ss', $like, $like);
     $stmt->execute();
     $users = $stmt->get_result();
   } else {
-    $users = $conn->query("SELECT * FROM users ORDER BY created_at DESC");
+    $users = $conn->query('SELECT * FROM users ORDER BY created_at DESC');
   }
 }
 
 // Delete User
 if (isset($_GET['delete'])) {
   $id = (int) $_GET['delete'];
-  $stmt = $conn->prepare("SELECT role FROM users WHERE id=?");
-  $stmt->bind_param("i", $id);
+  $stmt = $conn->prepare('SELECT role FROM users WHERE id=?');
+  $stmt->bind_param('i', $id);
   $stmt->execute();
   $roleRes = $stmt->get_result()->fetch_assoc();
   $stmt->close();
   if ($roleRes && $roleRes['role'] === 'admin') {
-    header("Location: dashboard.php?page=manage_users&msg=Cannot delete an admin account.");
+    header('Location: dashboard.php?page=manage_users&msg=Cannot delete an admin account.');
     exit;
   }
-  $stmt = $conn->prepare("DELETE FROM users WHERE id=?");
-  $stmt->bind_param("i", $id);
+  $stmt = $conn->prepare('DELETE FROM users WHERE id=?');
+  $stmt->bind_param('i', $id);
   if ($stmt->execute()) {
-    header("Location: dashboard.php?page=manage_users&msg=User deleted successfully.");
+    header('Location: dashboard.php?page=manage_users&msg=User deleted successfully.');
   } else {
-    header("Location: dashboard.php?page=manage_users&msg=Error: " . $stmt->error);
+    header('Location: dashboard.php?page=manage_users&msg=Error: ' . $stmt->error);
   }
   $stmt->close();
   exit;
@@ -310,29 +310,29 @@ if ($page === 'schedules') {
       $next_check = date('Y-m-d H:i:s', strtotime("next {$day_name} " . $schedule_time));
     } elseif ($schedule_type == 'monthly') {
       $schedule_day = $schedule_day ?? date('j');
-      $next_check = date('Y-m-d H:i:s', strtotime("first day of next month +" . ((int) $schedule_day - 1) . " days " . $schedule_time));
+      $next_check = date('Y-m-d H:i:s', strtotime('first day of next month +' . ((int) $schedule_day - 1) . ' days ' . $schedule_time));
     }
     $admin_id = $conn->query("SELECT id FROM users WHERE username = '{$_SESSION['username']}'")->fetch_assoc()['id'];
-    $stmt = $conn->prepare("INSERT INTO admin_schedules (admin_id, schedule_name, schedule_type, schedule_time, schedule_day, next_check) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("isssis", $admin_id, $schedule_name, $schedule_type, $schedule_time, $schedule_day, $next_check);
+    $stmt = $conn->prepare('INSERT INTO admin_schedules (admin_id, schedule_name, schedule_type, schedule_time, schedule_day, next_check) VALUES (?, ?, ?, ?, ?, ?)');
+    $stmt->bind_param('isssis', $admin_id, $schedule_name, $schedule_type, $schedule_time, $schedule_day, $next_check);
     $stmt->execute();
-    header("Location: dashboard.php?page=schedules");
+    header('Location: dashboard.php?page=schedules');
     exit();
   }
   if (isset($_GET['toggle_schedule'])) {
     $id = (int) $_GET['toggle_schedule'];
-    $stmt = $conn->prepare("UPDATE admin_schedules SET is_active = NOT is_active WHERE id = ?");
-    $stmt->bind_param("i", $id);
+    $stmt = $conn->prepare('UPDATE admin_schedules SET is_active = NOT is_active WHERE id = ?');
+    $stmt->bind_param('i', $id);
     $stmt->execute();
-    header("Location: dashboard.php?page=schedules");
+    header('Location: dashboard.php?page=schedules');
     exit();
   }
   if (isset($_GET['delete_schedule'])) {
     $id = (int) $_GET['delete_schedule'];
-    $stmt = $conn->prepare("DELETE FROM admin_schedules WHERE id = ?");
-    $stmt->bind_param("i", $id);
+    $stmt = $conn->prepare('DELETE FROM admin_schedules WHERE id = ?');
+    $stmt->bind_param('i', $id);
     $stmt->execute();
-    header("Location: dashboard.php?page=schedules");
+    header('Location: dashboard.php?page=schedules');
     exit();
   }
   if (isset($_POST['edit_schedule'])) {
@@ -350,28 +350,28 @@ if ($page === 'schedules') {
       $next_check = date('Y-m-d H:i:s', strtotime("next {$day_name} " . $schedule_time));
     } elseif ($schedule_type == 'monthly') {
       $schedule_day = $schedule_day ?? date('j');
-      $next_check = date('Y-m-d H:i:s', strtotime("first day of next month +" . ($schedule_day - 1) . " days " . $schedule_time));
+      $next_check = date('Y-m-d H:i:s', strtotime('first day of next month +' . ($schedule_day - 1) . ' days ' . $schedule_time));
     }
-    $stmt = $conn->prepare("UPDATE admin_schedules SET schedule_name=?, schedule_type=?, schedule_time=?, schedule_day=?, next_check=? WHERE id=?");
-    $stmt->bind_param("sssssi", $schedule_name, $schedule_type, $schedule_time, $schedule_day, $next_check, $id);
+    $stmt = $conn->prepare('UPDATE admin_schedules SET schedule_name=?, schedule_type=?, schedule_time=?, schedule_day=?, next_check=? WHERE id=?');
+    $stmt->bind_param('sssssi', $schedule_name, $schedule_type, $schedule_time, $schedule_day, $next_check, $id);
     $stmt->execute();
-    header("Location: dashboard.php?page=schedules");
+    header('Location: dashboard.php?page=schedules');
     exit();
   }
   $editSchedule = null;
   if (isset($_GET['edit_schedule'])) {
     $id = (int) $_GET['edit_schedule'];
-    $stmt = $conn->prepare("SELECT * FROM admin_schedules WHERE id = ?");
-    $stmt->bind_param("i", $id);
+    $stmt = $conn->prepare('SELECT * FROM admin_schedules WHERE id = ?');
+    $stmt->bind_param('i', $id);
     $stmt->execute();
     $editSchedule = $stmt->get_result()->fetch_assoc();
   }
-  $schedules = $conn->query("
+  $schedules = $conn->query('
         SELECT s.*, u.username AS created_by
         FROM admin_schedules s
         LEFT JOIN users u ON s.admin_id = u.id
         ORDER BY s.next_check ASC
-    ");
+    ');
 }
 
 // FUNCTION: Check schedules and create notifications
@@ -383,27 +383,28 @@ function checkSchedules()
   if ($tableCheck->num_rows == 0)
     return;
   $now = date('Y-m-d H:i:s');
-  $stmt = $conn->prepare("SELECT * FROM admin_schedules WHERE next_check <= ? AND is_active = 1");
+  $stmt = $conn->prepare('SELECT * FROM admin_schedules WHERE next_check <= ? AND is_active = 1');
   if (!$stmt)
     return;
-  $stmt->bind_param("s", $now);
+  $stmt->bind_param('s', $now);
   if (!$stmt->execute()) {
     $stmt->close();
     return;
   }
   $result = $stmt->get_result();
   while ($sched = $result->fetch_assoc()) {
-    $msg = "Time to check: " . $sched['schedule_name'];
-    $stmt2 = $conn->prepare("INSERT INTO notifications (user_id, message, is_read) VALUES (?, ?, 0)");
+    $msg = 'Time to check: ' . $sched['schedule_name'];
+    $stmt2 = $conn->prepare('INSERT INTO notifications (user_id, message, is_read) VALUES (?, ?, 0)');
     if (!$stmt2)
       continue;
-    $stmt2->bind_param("is", $sched['admin_id'], $msg);
+    $stmt2->bind_param('is', $sched['admin_id'], $msg);
     $stmt2->execute();
     $stmt2->close();
     updateNextCheck($sched['id'], $sched['schedule_type'], $sched['schedule_time'], $sched['schedule_day']);
   }
   $stmt->close();
 }
+
 function updateNextCheck($id, $type, $time, $day = null)
 {
   global $conn;
@@ -416,15 +417,16 @@ function updateNextCheck($id, $type, $time, $day = null)
       $next = $day_name ? date('Y-m-d H:i:s', strtotime("next {$day_name} " . $time)) : date('Y-m-d', strtotime('+7 days')) . ' ' . $time;
       break;
     case 'monthly':
-      $next = $day ? date('Y-m-d H:i:s', strtotime("first day of next month +" . ($day - 1) . " days " . $time)) : date('Y-m-d', strtotime('+30 days')) . ' ' . $time;
+      $next = $day ? date('Y-m-d H:i:s', strtotime('first day of next month +' . ($day - 1) . ' days ' . $time)) : date('Y-m-d', strtotime('+30 days')) . ' ' . $time;
       break;
     default:
       return;
   }
-  $stmt = $conn->prepare("UPDATE admin_schedules SET next_check = ? WHERE id = ?");
-  $stmt->bind_param("si", $next, $id);
+  $stmt = $conn->prepare('UPDATE admin_schedules SET next_check = ? WHERE id = ?');
+  $stmt->bind_param('si', $next, $id);
   $stmt->execute();
 }
+
 checkSchedules();
 
 $isGuest = ($_SESSION['role'] ?? '') === 'guest';
@@ -730,7 +732,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
       <h1 class="page-heading">Donation Requests</h1>
       <?php if (!empty($success_message)): ?>
         <div class="alert alert-success"><?= htmlspecialchars($success_message) ?></div><?php endif; ?>
-      <?php $donations = $conn->query("SELECT dr.id, dr.status, dr.requested_at, dr.approved_at, m.name AS med_name, m.type AS med_type, u.username AS staff_name FROM donation_requests dr JOIN medicines m ON dr.medicine_id = m.id JOIN users u ON dr.staff_id = u.id ORDER BY dr.requested_at DESC"); ?>
+      <?php $donations = $conn->query('SELECT dr.id, dr.status, dr.requested_at, dr.approved_at, m.name AS med_name, m.type AS med_type, u.username AS staff_name FROM donation_requests dr JOIN medicines m ON dr.medicine_id = m.id JOIN users u ON dr.staff_id = u.id ORDER BY dr.requested_at DESC'); ?>
       <div class="table-wrap">
         <table>
           <tr>
@@ -939,20 +941,21 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
             <th>Expiry</th>
             <th>Status</th>
           </tr>
-          <?php if (!empty($meds) && $meds->num_rows > 0):
+          <?php
+          if (!empty($meds) && $meds->num_rows > 0):
             while ($row = $meds->fetch_assoc()):
-              $class = "badge-good";
-              $status = "Good";
-              if ($row['quantity'] <= 20 && $row['expired_date'] > date("Y-m-d")) {
-                $status = "Low Stock";
-                $class = "badge-low";
+              $class = 'badge-good';
+              $status = 'Good';
+              if ($row['quantity'] <= 20 && $row['expired_date'] > date('Y-m-d')) {
+                $status = 'Low Stock';
+                $class = 'badge-low';
               }
-              if ($row['expired_date'] <= date("Y-m-d")) {
-                $status = "Expired";
-                $class = "badge-expired";
-              } elseif ($row['expired_date'] <= date("Y-m-d", strtotime("+7 days"))) {
-                $status = "Expiring Soon";
-                $class = "badge-low";
+              if ($row['expired_date'] <= date('Y-m-d')) {
+                $status = 'Expired';
+                $class = 'badge-expired';
+              } elseif ($row['expired_date'] <= date('Y-m-d', strtotime('+7 days'))) {
+                $status = 'Expiring Soon';
+                $class = 'badge-low';
               }
               ?>
               <tr>
@@ -963,7 +966,8 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
                 <td><?= htmlspecialchars($row['expired_date']) ?></td>
                 <td><span class="<?= $class ?>"><?= $status ?></span></td>
               </tr>
-            <?php endwhile; else: ?>
+            <?php endwhile;
+          else: ?>
             <tr>
               <td colspan="6" style="text-align:center;color:var(--text-muted);">No results.</td>
             </tr>
@@ -981,7 +985,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
             <th>Action</th>
             <th>Timestamp</th>
           </tr>
-          <?php $logs = $conn->query("SELECT * FROM logs ORDER BY timestamp DESC");
+          <?php $logs = $conn->query('SELECT * FROM logs ORDER BY timestamp DESC');
           while ($log = $logs->fetch_assoc()): ?>
             <tr>
               <td><?= (int) $log['id'] ?></td>

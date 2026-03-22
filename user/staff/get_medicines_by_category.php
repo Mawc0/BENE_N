@@ -1,16 +1,16 @@
 <?php
 // Database connection
-include "db.php";
+include 'db.php';
 
 $category = $_GET['category'] ?? '';
 if (!$category) {
-    echo "<p>No category selected.</p>";
+    echo '<p>No category selected.</p>';
     exit();
 }
 
-$sql = "SELECT * FROM medicines WHERE type = ?";
+$sql = 'SELECT * FROM medicines WHERE type = ?';
 $stmt = $conn->prepare($sql);
-$stmt->bind_param("s", $category);
+$stmt->bind_param('s', $category);
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -41,11 +41,10 @@ if ($result->num_rows > 0) {
                 <td><strong>" . (int) $row['quantity'] . "</strong></td>
                 <td>$status</td>
             </tr>";
-
     }
-    echo "</table>";
+    echo '</table>';
 } else {
-    echo "<p>No medicines in this category.</p>";
+    echo '<p>No medicines in this category.</p>';
 }
 $stmt->close();
 $conn->close();

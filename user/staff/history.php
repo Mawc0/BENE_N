@@ -2,10 +2,10 @@
 // history.php - Shows expired medicines from expired_logs (true history)
 
 // Database connection
-include "../../db.php";
+include '../../db.php';
 
 // Fetch dynamic categories from DB
-$categoryResult = $conn->query("SELECT name FROM categories ORDER BY id");
+$categoryResult = $conn->query('SELECT name FROM categories ORDER BY id');
 $categories = [];
 if ($categoryResult && $categoryResult->num_rows > 0) {
     while ($row = $categoryResult->fetch_assoc()) {
@@ -22,8 +22,8 @@ $action = $_GET['action'] ?? '';
 if ($action === 'get_counts') {
     $counts = [];
     foreach ($categories as $cat) {
-        $stmt = $conn->prepare("SELECT COUNT(*) AS count FROM expired_logs WHERE type = ?");
-        $stmt->bind_param("s", $cat);
+        $stmt = $conn->prepare('SELECT COUNT(*) AS count FROM expired_logs WHERE type = ?');
+        $stmt->bind_param('s', $cat);
         $stmt->execute();
         $result = $stmt->get_result()->fetch_assoc();
         $counts[$cat] = (int) $result['count'];
@@ -44,8 +44,8 @@ if ($action === 'get_category') {
         exit;
     }
 
-    $stmt = $conn->prepare("SELECT * FROM expired_logs WHERE type = ? ORDER BY expired_date DESC");
-    $stmt->bind_param("s", $category);
+    $stmt = $conn->prepare('SELECT * FROM expired_logs WHERE type = ? ORDER BY expired_date DESC');
+    $stmt->bind_param('s', $category);
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -68,14 +68,14 @@ if ($action === 'get_category') {
 
             echo "<tr style='border-bottom:1px solid #eee;'>
                     <td><img src='uploads/medicines/" . htmlspecialchars($row['image']) . "' width='40' style='border-radius:4px;'></td>
-                    <td><strong>" . htmlspecialchars($row['name']) . "</strong></td>
-                    <td>" . htmlspecialchars($row['batch_date']) . "</td>
-                    <td style='color:#c62828; font-weight:bold;'>" . htmlspecialchars($row['expired_date']) . "</td>
-                    <td><strong>" . (int) $row['quantity_at_expiry'] . " units</strong></td>
-                    <td style='color:#c62828; font-weight:bold;'>" . $label . "</td>
-                  </tr>";
+                    <td><strong>" . htmlspecialchars($row['name']) . '</strong></td>
+                    <td>' . htmlspecialchars($row['batch_date']) . "</td>
+                    <td style='color:#c62828; font-weight:bold;'>" . htmlspecialchars($row['expired_date']) . '</td>
+                    <td><strong>' . (int) $row['quantity_at_expiry'] . " units</strong></td>
+                    <td style='color:#c62828; font-weight:bold;'>" . $label . '</td>
+                  </tr>';
         }
-        echo "</table>";
+        echo '</table>';
     } else {
         echo "<p style='color: #666; font-style: italic;'>No expired medicines in this category.</p>";
     }
@@ -85,6 +85,6 @@ if ($action === 'get_category') {
 
 // Invalid action
 http_response_code(400);
-echo "Invalid action.";
+echo 'Invalid action.';
 $conn->close();
 ?>

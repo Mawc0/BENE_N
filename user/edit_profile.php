@@ -2,17 +2,17 @@
 session_start();
 
 if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
+    header('Location: login.php');
     exit();
 }
 
-include "../db.php";
+include '../db.php';
 
 $userId = $_SESSION['user_id'];
 $message = '';
 
-$stmt = $conn->prepare("SELECT username, role, profile_pic FROM users WHERE id = ?");
-$stmt->bind_param("i", $userId);
+$stmt = $conn->prepare('SELECT username, role, profile_pic FROM users WHERE id = ?');
+$stmt->bind_param('i', $userId);
 $stmt->execute();
 $user = $stmt->get_result()->fetch_assoc();
 
@@ -20,8 +20,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username']);
     $current_password = $_POST['current_password'];
 
-    $stmt = $conn->prepare("SELECT password, profile_pic FROM users WHERE id = ?");
-    $stmt->bind_param("i", $userId);
+    $stmt = $conn->prepare('SELECT password, profile_pic FROM users WHERE id = ?');
+    $stmt->bind_param('i', $userId);
     $stmt->execute();
     $user_data = $stmt->get_result()->fetch_assoc();
 
@@ -33,18 +33,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (!empty($_FILES['profile_pic']['name'])) {
-            $targetDir = "../uploads/avatars/";
+            $targetDir = '../uploads/avatars/';
             if (!is_dir($targetDir))
                 mkdir($targetDir, 0777, true);
-            $newFileName = time() . "_" . basename($_FILES['profile_pic']['name']);
+            $newFileName = time() . '_' . basename($_FILES['profile_pic']['name']);
             if (move_uploaded_file($_FILES['profile_pic']['tmp_name'], $targetDir . $newFileName)) {
                 $profilePic = $newFileName;
                 $_SESSION['profile_pic'] = $profilePic;
             }
         }
 
-        $stmt = $conn->prepare("UPDATE users SET username = ?, profile_pic = ? WHERE id = ?");
-        $stmt->bind_param("ssi", $username, $profilePic, $userId);
+        $stmt = $conn->prepare('UPDATE users SET username = ?, profile_pic = ? WHERE id = ?');
+        $stmt->bind_param('ssi', $username, $profilePic, $userId);
         if ($stmt->execute()) {
             $_SESSION['username'] = $username;
             $_SESSION['profile_pic'] = $profilePic;
@@ -140,7 +140,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="avatar-gallery">
                     <?php
                     $avatars = ['avatar1.jpg', 'avatar2.jpg', 'avatar3.jpg', 'avatar4.jpg'];
-                    foreach ($avatars as $avatar): ?>
+                    foreach ($avatars as $avatar):
+                        ?>
                         <label class="avatar-option" title="<?= $avatar ?>">
                             <input type="radio" name="selected_avatar" value="<?= $avatar ?>"
                                 <?= ($user['profile_pic'] === $avatar) ? 'checked' : '' ?>>

@@ -3,15 +3,15 @@ session_start();
 date_default_timezone_set('Asia/Manila');
 
 // Database connection
-include "../../db.php";
+include '../../db.php';
 
 // Access control: Only allow staff and guests
 // Redirect guests to a limited dashboard
 // Notifies new Staff to change password and set security question
 $userId = $_SESSION['user_id'] ?? null;
 if ($userId) {
-  $stmt = $conn->prepare("SELECT username, role, profile_pic, force_password_change, force_security_setup FROM users WHERE id = ?");
-  $stmt->bind_param("i", $userId);
+  $stmt = $conn->prepare('SELECT username, role, profile_pic, force_password_change, force_security_setup FROM users WHERE id = ?');
+  $stmt->bind_param('i', $userId);
   $stmt->execute();
   $result = $stmt->get_result();
   if ($row = $result->fetch_assoc()) {
@@ -26,8 +26,8 @@ if ($userId) {
 $forcePasswordChange = false;
 $forceSecuritySetup = false;
 if ($userId) {
-  $stmt = $conn->prepare("SELECT force_password_change, force_security_setup FROM users WHERE id = ?");
-  $stmt->bind_param("i", $userId);
+  $stmt = $conn->prepare('SELECT force_password_change, force_security_setup FROM users WHERE id = ?');
+  $stmt->bind_param('i', $userId);
   $stmt->execute();
   $result = $stmt->get_result();
   if ($row = $result->fetch_assoc()) {
@@ -39,12 +39,11 @@ if ($userId) {
 
 $isGuest = ($_SESSION['role'] ?? '') === 'guest';
 
-
 // Donation Request Handler
 if (isset($_GET['donate']) && $userId) {
   if ($isGuest) {
-    $_SESSION['toast'] = ['message' => "⚠️ Guests cannot submit donation requests.", 'type' => 'error'];
-    header("Location: staff_dashboard.php?page=donate");
+    $_SESSION['toast'] = ['message' => '⚠️ Guests cannot submit donation requests.', 'type' => 'error'];
+    header('Location: staff_dashboard.php?page=donate');
     exit();
   }
 
@@ -54,27 +53,27 @@ if (isset($_GET['donate']) && $userId) {
   $twelveMonths = date('Y-m-d', strtotime('+12 months'));
 
   // Only allow donation if expiry is >10 months AND ≤12 months from today
-  $medCheck = $conn->prepare("
+  $medCheck = $conn->prepare('
         SELECT name, expired_date
         FROM medicines
         WHERE id = ?
           AND expired_date > ?
           AND expired_date <= ?
-    ");
-  $medCheck->bind_param("iss", $medicineId, $tenMonths, $twelveMonths);
+    ');
+  $medCheck->bind_param('iss', $medicineId, $tenMonths, $twelveMonths);
   $medCheck->execute();
   $med = $medCheck->get_result()->fetch_assoc();
 
   if ($med) {
     // Check if already requested
     $existing = $conn->prepare("SELECT id FROM donation_requests WHERE medicine_id = ? AND staff_id = ? AND status = 'pending'");
-    $existing->bind_param("ii", $medicineId, $userId);
+    $existing->bind_param('ii', $medicineId, $userId);
     $existing->execute();
     if ($existing->get_result()->num_rows > 0) {
       $_SESSION['toast'] = ['message' => "⚠️ You already have a pending request for {$med['name']}.", 'type' => 'warning'];
     } else {
-      $stmt = $conn->prepare("INSERT INTO donation_requests (medicine_id, staff_id) VALUES (?, ?)");
-      $stmt->bind_param("ii", $medicineId, $userId);
+      $stmt = $conn->prepare('INSERT INTO donation_requests (medicine_id, staff_id) VALUES (?, ?)');
+      $stmt->bind_param('ii', $medicineId, $userId);
       if ($stmt->execute()) {
         // Notify all admins
         $notify = $conn->prepare("
@@ -82,25 +81,25 @@ if (isset($_GET['donate']) && $userId) {
                     SELECT id, CONCAT(?, ' requested donation for medicine \"', ?, '\".'), 0, NOW()
                     FROM users WHERE role = 'admin'
                 ");
-        $notify->bind_param("ss", $_SESSION['username'], $med['name']);
+        $notify->bind_param('ss', $_SESSION['username'], $med['name']);
         $notify->execute();
         $_SESSION['toast'] = ['message' => "✅ Donation request sent for {$med['name']}!", 'type' => 'success'];
       } else {
-        $_SESSION['toast'] = ['message' => "❌ Failed to send request.", 'type' => 'error'];
+        $_SESSION['toast'] = ['message' => '❌ Failed to send request.', 'type' => 'error'];
       }
     }
   } else {
-    $_SESSION['toast'] = ['message' => "⚠️ Only medicines expiring in 10–12 months are eligible for donation.", 'type' => 'warning'];
+    $_SESSION['toast'] = ['message' => '⚠️ Only medicines expiring in 10–12 months are eligible for donation.', 'type' => 'warning'];
   }
-  header("Location: staff_dashboard.php?page=donate");
+  header('Location: staff_dashboard.php?page=donate');
   exit();
 }
 
 // Disposal Request Handler
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_disposal']) && $userId) {
   if ($isGuest) {
-    $_SESSION['toast'] = ['message' => "⚠️ Guests cannot dispose of items.", 'type' => 'error'];
-    header("Location: staff_dashboard.php?page=donate");
+    $_SESSION['toast'] = ['message' => '⚠️ Guests cannot dispose of items.', 'type' => 'error'];
+    header('Location: staff_dashboard.php?page=donate');
     exit();
   }
 
@@ -108,8 +107,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_disposal']) &
   $disposalMethod = trim($_POST['disposal_method']);
 
   if (empty($disposalMethod)) {
-    $_SESSION['toast'] = ['message' => "⚠️ Please specify how you will dispose of the item.", 'type' => 'warning'];
-    header("Location: staff_dashboard.php?page=donate");
+    $_SESSION['toast'] = ['message' => '⚠️ Please specify how you will dispose of the item.', 'type' => 'warning'];
+    header('Location: staff_dashboard.php?page=donate');
     exit();
   }
 
@@ -123,13 +122,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_disposal']) &
           AND expired_date <= ?
           AND status != 'disposed'
     ");
-  $medCheck->bind_param("iss", $medicineId, $today, $tenMonths);
+  $medCheck->bind_param('iss', $medicineId, $today, $tenMonths);
   $medCheck->execute();
   $med = $medCheck->get_result()->fetch_assoc();
 
   if (!$med) {
-    $_SESSION['toast'] = ['message' => "⚠️ This item is not eligible for disposal.", 'type' => 'warning'];
-    header("Location: staff_dashboard.php?page=donate");
+    $_SESSION['toast'] = ['message' => '⚠️ This item is not eligible for disposal.', 'type' => 'warning'];
+    header('Location: staff_dashboard.php?page=donate');
     exit();
   }
 
@@ -138,13 +137,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_disposal']) &
 
   try {
     // 1. Insert into disposal_requests
-    $stmt = $conn->prepare("INSERT INTO disposal_requests (medicine_id, staff_id, disposal_method, disposed_at) VALUES (?, ?, ?, NOW())");
-    $stmt->bind_param("iis", $medicineId, $userId, $disposalMethod);
+    $stmt = $conn->prepare('INSERT INTO disposal_requests (medicine_id, staff_id, disposal_method, disposed_at) VALUES (?, ?, ?, NOW())');
+    $stmt->bind_param('iis', $medicineId, $userId, $disposalMethod);
     $stmt->execute();
 
     // 2. Mark medicine as disposed
     $update = $conn->prepare("UPDATE medicines SET status = 'disposed', last_updated = NOW() WHERE id = ?");
-    $update->bind_param("i", $medicineId);
+    $update->bind_param('i', $medicineId);
     $update->execute();
 
     // 3. Notify all admins about the disposal
@@ -153,13 +152,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_disposal']) &
             SELECT id, CONCAT(?, ' has disposed of medicine \"', ?, '\".'), 0, NOW()
             FROM users WHERE role = 'admin'
         ");
-    $notify->bind_param("ss", $_SESSION['username'], $med['name']);
+    $notify->bind_param('ss', $_SESSION['username'], $med['name']);
     $notify->execute();
 
     // 4. Log the action in logs table
     $logMsg = "Staff {$_SESSION['username']} disposed of \"{$med['name']}\" via: " . substr($disposalMethod, 0, 100);
     $logStmt = $conn->prepare("INSERT INTO logs (user, action) VALUES ('admin', ?)");
-    $logStmt->bind_param("s", $logMsg);
+    $logStmt->bind_param('s', $logMsg);
     $logStmt->execute();
     $logStmt->close();
 
@@ -167,16 +166,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_disposal']) &
     $_SESSION['toast'] = ['message' => "✅ Disposal recorded for {$med['name']}!", 'type' => 'success'];
   } catch (Exception $e) {
     $conn->rollback();
-    $_SESSION['toast'] = ['message' => "❌ Failed to process disposal.", 'type' => 'error'];
+    $_SESSION['toast'] = ['message' => '❌ Failed to process disposal.', 'type' => 'error'];
   }
 
   $conn->autocommit(TRUE);
-  header("Location: staff_dashboard.php?page=donate");
+  header('Location: staff_dashboard.php?page=donate');
   exit();
 }
 
 // Fetch categories from database
-$categoryResult = $conn->query("SELECT name FROM categories ORDER BY id");
+$categoryResult = $conn->query('SELECT name FROM categories ORDER BY id');
 $categories = [];
 if ($categoryResult && $categoryResult->num_rows > 0) {
   while ($row = $categoryResult->fetch_assoc()) {
@@ -190,8 +189,8 @@ if ($categoryResult && $categoryResult->num_rows > 0) {
 // Count expiring medicines (within 1 day)
 $expiring_counts = [];
 foreach ($categories as $cat) {
-  $stmt = $conn->prepare("SELECT COUNT(*) AS count FROM medicines WHERE type = ? AND expired_date <= CURDATE() + INTERVAL 1 DAY AND expired_date >= CURDATE()");
-  $stmt->bind_param("s", $cat);
+  $stmt = $conn->prepare('SELECT COUNT(*) AS count FROM medicines WHERE type = ? AND expired_date <= CURDATE() + INTERVAL 1 DAY AND expired_date >= CURDATE()');
+  $stmt->bind_param('s', $cat);
   $stmt->execute();
   $result_count = $stmt->get_result()->fetch_assoc();
   $expiring_counts[$cat] = (int) $result_count['count'];
@@ -204,10 +203,10 @@ if (isset($_SESSION['toast'])) {
   unset($_SESSION['toast']);
 }
 // Add Medicine
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_medicine'])) {
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_medicine'])) {
   if ($isGuest) {
-    $_SESSION['toast'] = ['message' => "⚠️ Guests cannot add medicines.", 'type' => 'error'];
-    header("Location: staff_dashboard.php");
+    $_SESSION['toast'] = ['message' => '⚠️ Guests cannot add medicines.', 'type' => 'error'];
+    header('Location: staff_dashboard.php');
     exit();
   }
 
@@ -215,36 +214,36 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['add_medicine'])) {
   $type = trim($_POST['type']);
   $batch_date = $_POST['batch_date'];
   $expired_date = $_POST['expired_date'];
-  $target_dir = "uploads/medicines/";
+  $target_dir = 'uploads/medicines/';
   if (!is_dir($target_dir))
     mkdir($target_dir, 0777, true);
   if ($_FILES['image']['error'] !== UPLOAD_ERR_OK) {
-    $_SESSION['toast'] = ['message' => "Upload failed with error code " . $_FILES['image']['error'], 'type' => 'error'];
-    header("Location: staff_dashboard.php");
+    $_SESSION['toast'] = ['message' => 'Upload failed with error code ' . $_FILES['image']['error'], 'type' => 'error'];
+    header('Location: staff_dashboard.php');
     exit();
   }
-  $image = time() . "_" . basename($_FILES['image']['name']);
+  $image = time() . '_' . basename($_FILES['image']['name']);
   $target_file = $target_dir . $image;
   $quantity = isset($_POST['quantity']) ? (int) $_POST['quantity'] : 100;
   if (move_uploaded_file($_FILES['image']['tmp_name'], $target_file)) {
     $sql = "INSERT INTO medicines (image, name, type, batch_date, expired_date, quantity, last_updated)
         VALUES ('$image', '$name', '$type', '$batch_date', '$expired_date', $quantity, NOW())";
     if ($conn->query($sql) === TRUE) {
-      $_SESSION['toast'] = ['message' => "Medicine added successfully!", 'type' => 'success'];
+      $_SESSION['toast'] = ['message' => 'Medicine added successfully!', 'type' => 'success'];
     } else {
-      $_SESSION['toast'] = ['message' => "Error: " . $conn->error, 'type' => 'error'];
+      $_SESSION['toast'] = ['message' => 'Error: ' . $conn->error, 'type' => 'error'];
     }
   } else {
-    $_SESSION['toast'] = ['message' => "Failed to upload image.", 'type' => 'error'];
+    $_SESSION['toast'] = ['message' => 'Failed to upload image.', 'type' => 'error'];
   }
-  header("Location: staff_dashboard.php");
+  header('Location: staff_dashboard.php');
   exit();
 }
 // Update Medicine
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_medicine'])) {
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_medicine'])) {
   if ($isGuest) {
-    $_SESSION['toast'] = ['message' => "⚠️ Guests cannot edit medicines.", 'type' => 'error'];
-    header("Location: staff_dashboard.php");
+    $_SESSION['toast'] = ['message' => '⚠️ Guests cannot edit medicines.', 'type' => 'error'];
+    header('Location: staff_dashboard.php');
     exit();
   }
 
@@ -253,16 +252,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_medicine'])) {
   $type = $_POST['type'];
   $batch_date = $_POST['batch_date'];
   $expired_date = $_POST['expired_date'];
-  $image_query = "";
+  $image_query = '';
   $quantity = (int) $_POST['quantity'];
   if (!empty($_FILES['image']['name'])) {
     if ($_FILES['image']['error'] !== UPLOAD_ERR_OK) {
-      $_SESSION['toast'] = ['message' => "Upload failed with error code " . $_FILES['image']['error'], 'type' => 'error'];
-      header("Location: staff_dashboard.php");
+      $_SESSION['toast'] = ['message' => 'Upload failed with error code ' . $_FILES['image']['error'], 'type' => 'error'];
+      header('Location: staff_dashboard.php');
       exit();
     }
-    $target_dir = "uploads/medicines/";
-    $image = time() . "_" . basename($_FILES['image']['name']);
+    $target_dir = 'uploads/medicines/';
+    $image = time() . '_' . basename($_FILES['image']['name']);
     $target_file = $target_dir . $image;
     if (move_uploaded_file($_FILES['image']['tmp_name'], $target_file)) {
       $image_query = ", image='$image'";
@@ -273,18 +272,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_medicine'])) {
     quantity=$quantity$image_query, last_updated = NOW()
     WHERE id=$id";
   if ($conn->query($sql) === TRUE) {
-    $_SESSION['toast'] = ['message' => "Medicine updated successfully!", 'type' => 'success'];
+    $_SESSION['toast'] = ['message' => 'Medicine updated successfully!', 'type' => 'success'];
   } else {
-    $_SESSION['toast'] = ['message' => "Failed to update: " . $conn->error, 'type' => 'error'];
+    $_SESSION['toast'] = ['message' => 'Failed to update: ' . $conn->error, 'type' => 'error'];
   }
-  header("Location: staff_dashboard.php");
+  header('Location: staff_dashboard.php');
   exit();
 }
 // Adjust Stock (Add or Use)
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['adjust_stock'])) {
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['adjust_stock'])) {
   if ($isGuest) {
-    $_SESSION['toast'] = ['message' => "⚠️ Guests cannot adjust stock.", 'type' => 'error'];
-    header("Location: staff_dashboard.php");
+    $_SESSION['toast'] = ['message' => '⚠️ Guests cannot adjust stock.', 'type' => 'error'];
+    header('Location: staff_dashboard.php');
     exit();
   }
 
@@ -297,22 +296,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['adjust_stock'])) {
     $old_quantity = $row['quantity'];
     if ($action === 'use' && $change > $old_quantity) {
       $_SESSION['toast'] = ['message' => "❌ Cannot use $change units. Only {$old_quantity} available.", 'type' => 'error'];
-      header("Location: staff_dashboard.php");
+      header('Location: staff_dashboard.php');
       exit();
     }
     $new_quantity = ($action === 'use') ? $old_quantity - $change : $old_quantity + $change;
     $verb = ($action === 'use') ? 'used' : 'added';
     $conn->query("UPDATE medicines SET quantity = $new_quantity, last_updated = NOW() WHERE id = $id");
     $_SESSION['toast'] = ['message' => "✅ $change unit(s) $verb from {$row['name']}. Stock: $old_quantity → $new_quantity", 'type' => 'success'];
-    header("Location: staff_dashboard.php");
+    header('Location: staff_dashboard.php');
     exit();
   }
 }
 // Delete Medicine
 if (isset($_GET['delete'])) {
   if ($isGuest) {
-    $_SESSION['toast'] = ['message' => "⚠️ Guests cannot delete medicines.", 'type' => 'error'];
-    header("Location: staff_dashboard.php");
+    $_SESSION['toast'] = ['message' => '⚠️ Guests cannot delete medicines.', 'type' => 'error'];
+    header('Location: staff_dashboard.php');
     exit();
   }
 
@@ -322,13 +321,13 @@ if (isset($_GET['delete'])) {
   $result = $conn->query("SELECT image FROM medicines WHERE id = $id");
   if ($result->num_rows > 0) {
     $row = $result->fetch_assoc();
-    $image_path = "uploads/medicines/" . $row['image'];
+    $image_path = 'uploads/medicines/' . $row['image'];
     if (file_exists($image_path))
       unlink($image_path);
   }
   $conn->query("DELETE FROM medicines WHERE id = $id");
-  $_SESSION['toast'] = ['message' => "Medicine deleted successfully!", 'type' => 'success'];
-  header("Location: staff_dashboard.php");
+  $_SESSION['toast'] = ['message' => 'Medicine deleted successfully!', 'type' => 'success'];
+  header('Location: staff_dashboard.php');
   exit();
 }
 // Edit Data
@@ -340,7 +339,8 @@ if (isset($_GET['edit'])) {
     $edit_data = $edit_result->fetch_assoc();
   }
 }
-// FUNCTION: Log expired medicines automatically 
+
+// FUNCTION: Log expired medicines automatically
 function logExpiredMedicines($conn)
 {
   $today = date('Y-m-d');
@@ -349,21 +349,21 @@ function logExpiredMedicines($conn)
     FROM medicines
     WHERE expired_date < ? AND status != 'inactive'
     ");
-  $stmt->bind_param("s", $today);
+  $stmt->bind_param('s', $today);
   $stmt->execute();
   $result = $stmt->get_result();
 
   while ($row = $result->fetch_assoc()) {
     // ✅ Insert into expired_logs WITH medicine_id
     // ❌ DO NOT insert into 'id' — let it auto-increment!
-    $insert = $conn->prepare("
+    $insert = $conn->prepare('
         INSERT INTO expired_logs
         (medicine_id, name, type, batch_date, expired_date, quantity_at_expiry, image, recorded_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-        ");
+        ');
     $insert->bind_param(
-      "issssis",
-      $row['id'],               // Goes into medicine_id
+      'issssis',
+      $row['id'],  // Goes into medicine_id
       $row['name'],
       $row['type'],
       $row['batch_date'],
@@ -380,18 +380,19 @@ function logExpiredMedicines($conn)
         SET status = 'inactive', removed_on = NOW(), last_updated = NOW()
         WHERE id = ?
         ");
-    $update->bind_param("i", $row['id']);
+    $update->bind_param('i', $row['id']);
     $update->execute();
     $update->close();
   }
   $stmt->close();
 }
+
 logExpiredMedicines($conn);
-$result = $conn->query("SELECT * FROM medicines");
-$expiring_meds = $conn->query("SELECT * FROM medicines WHERE expired_date <= CURDATE() + INTERVAL 1 DAY AND expired_date >= CURDATE()");
+$result = $conn->query('SELECT * FROM medicines');
+$expiring_meds = $conn->query('SELECT * FROM medicines WHERE expired_date <= CURDATE() + INTERVAL 1 DAY AND expired_date >= CURDATE()');
 $expired_count = $expiring_meds->num_rows;
 $low_stock_count = 0;
-$result_low = $conn->query("SELECT quantity, expired_date FROM medicines");
+$result_low = $conn->query('SELECT quantity, expired_date FROM medicines');
 while ($row = $result_low->fetch_assoc()) {
   $exp = new DateTime($row['expired_date']);
   $today = new DateTime();
@@ -399,7 +400,7 @@ while ($row = $result_low->fetch_assoc()) {
     $low_stock_count++;
   }
 }
-$last_updated_query = $conn->query("SELECT MAX(last_updated) as latest_update FROM medicines");
+$last_updated_query = $conn->query('SELECT MAX(last_updated) as latest_update FROM medicines');
 $last_updated = $last_updated_query->fetch_assoc()['latest_update'];
 $formatted_date = $last_updated ? date('M d, Y g:i A', strtotime($last_updated)) : 'No updates';
 
@@ -624,9 +625,9 @@ if ($userId) {
         $today = date('Y-m-d');
         $expired = $conn->query("SELECT COUNT(*) as count FROM medicines WHERE expired_date < '$today'")->fetch_assoc()['count'];
         $valid = $conn->query("SELECT COUNT(*) as count FROM medicines WHERE expired_date >= '$today'")->fetch_assoc()['count'];
-        $lowStock = $conn->query("SELECT COUNT(*) as count FROM medicines WHERE quantity <= 20")->fetch_assoc()['count'];
-        $normalStock = $conn->query("SELECT COUNT(*) as count FROM medicines WHERE quantity > 20 AND quantity <= 50")->fetch_assoc()['count'];
-        $highStock = $conn->query("SELECT COUNT(*) as count FROM medicines WHERE quantity > 50")->fetch_assoc()['count'];
+        $lowStock = $conn->query('SELECT COUNT(*) as count FROM medicines WHERE quantity <= 20')->fetch_assoc()['count'];
+        $normalStock = $conn->query('SELECT COUNT(*) as count FROM medicines WHERE quantity > 20 AND quantity <= 50')->fetch_assoc()['count'];
+        $highStock = $conn->query('SELECT COUNT(*) as count FROM medicines WHERE quantity > 50')->fetch_assoc()['count'];
         $trendQuery = $conn->query("
 SELECT DATE_FORMAT(expired_date, '%Y-%m') as month,
 COUNT(*) as count
@@ -841,21 +842,23 @@ ORDER BY month
           </thead>
           <tbody>
             <?php
-            $invResult = $conn->query("
+            $invResult = $conn->query('
             SELECT *,
             CASE WHEN expired_date < CURDATE() THEN 3
                  WHEN quantity <= 20 THEN 1
                  ELSE 2 END AS sort_order
             FROM medicines
             ORDER BY sort_order ASC, expired_date ASC
-        ");
+        ');
             while ($row = $invResult->fetch_assoc()):
               $expDate = new DateTime($row['expired_date']);
               $todayDt = new DateTime();
               $isExpired = $expDate < $todayDt;
               $isLow = !$isExpired && $row['quantity'] <= 20;
-              $status = $isExpired ? '<span class="badge-expired">&#128308; Expired</span>'
-                : ($isLow ? '<span class="badge-low">&#9888; Low Stock</span>'
+              $status = $isExpired
+                ? '<span class="badge-expired">&#128308; Expired</span>'
+                : ($isLow
+                  ? '<span class="badge-low">&#9888; Low Stock</span>'
                   : '<span class="badge-good">&#10003; In Stock</span>');
               $rowClass = $isExpired ? 'expiring-soon' : ($isLow ? 'warning' : '');
               ?>
@@ -1028,7 +1031,7 @@ ORDER BY month
           </thead>
           <tbody>
             <?php
-            $expResult = $conn->query("
+            $expResult = $conn->query('
           SELECT *,
             CASE
               WHEN expired_date < CURDATE() THEN 3
@@ -1038,7 +1041,7 @@ ORDER BY month
           FROM medicines
           WHERE expired_date <= CURDATE() + INTERVAL 7 DAY
           ORDER BY sort_order ASC, expired_date ASC
-        ");
+        ');
             while ($row = $expResult->fetch_assoc()):
               $expiryDate = new DateTime($row['expired_date']);
               $todayDt = new DateTime();
@@ -1168,9 +1171,9 @@ ORDER BY month
                   $interval = $now->diff($expDate);
                   $totalMonths = $interval->y * 12 + $interval->m;
                   $days = $interval->d;
-                  $displayTime = "$totalMonths mo" . ($days > 0 ? " $days d" : "");
+                  $displayTime = "$totalMonths mo" . ($days > 0 ? " $days d" : '');
                   $pendingCheck = $conn->prepare("SELECT id FROM donation_requests WHERE medicine_id = ? AND staff_id = ? AND status = 'pending'");
-                  $pendingCheck->bind_param("ii", $med['id'], $userId);
+                  $pendingCheck->bind_param('ii', $med['id'], $userId);
                   $pendingCheck->execute();
                   $isPending = $pendingCheck->get_result()->num_rows > 0;
                   $pendingCheck->close();
@@ -1198,7 +1201,8 @@ ORDER BY month
                       <?php endif; ?>
                     </td>
                   </tr>
-                <?php endwhile; else: ?>
+                <?php endwhile;
+              else: ?>
                 <tr>
                   <td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No supplies eligible
                     for donation.</td>
@@ -1234,7 +1238,7 @@ ORDER BY month
                   $interval = $now->diff($expDate);
                   $totalMonths = $interval->y * 12 + $interval->m;
                   $days = $interval->d;
-                  $displayTime = "$totalMonths mo" . ($days > 0 ? " $days d" : "");
+                  $displayTime = "$totalMonths mo" . ($days > 0 ? " $days d" : '');
                   $isUrgent = ($totalMonths == 0 && $days <= 1);
                   ?>
                   <tr>
@@ -1255,7 +1259,8 @@ ORDER BY month
                       </button>
                     </td>
                   </tr>
-                <?php endwhile; else: ?>
+                <?php endwhile;
+              else: ?>
                 <tr>
                   <td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No supplies eligible
                     for disposal.</td>
@@ -1348,7 +1353,8 @@ ORDER BY month
                       <?= $req['status'] !== 'pending' ? 'Responded: ' . htmlspecialchars($req['approved_at']) : '<em>Awaiting review</em>' ?>
                     </td>
                   </tr>
-                <?php endwhile; else: ?>
+                <?php endwhile;
+              else: ?>
                 <tr>
                   <td colspan="5" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No donation requests
                     yet.</td>
@@ -1393,7 +1399,8 @@ ORDER BY month
                       <?= nl2br(htmlspecialchars($req['disposal_method'])) ?>
                     </td>
                   </tr>
-                <?php endwhile; else: ?>
+                <?php endwhile;
+              else: ?>
                 <tr>
                   <td colspan="4" style="text-align:center;color:var(--text-muted);padding:1.5rem;">No disposal records
                     yet.</td>
@@ -1450,10 +1457,10 @@ ORDER BY month
           </thead>
           <tbody>
             <?php
-            $expHistoryResult = $conn->query("
+            $expHistoryResult = $conn->query('
             SELECT * FROM expired_logs
             ORDER BY recorded_at DESC
-          ");
+          ');
             if ($expHistoryResult && $expHistoryResult->num_rows > 0):
               while ($row = $expHistoryResult->fetch_assoc()):
                 ?>
@@ -1481,7 +1488,8 @@ ORDER BY month
                     <?= htmlspecialchars($row['recorded_at']) ?>
                   </td>
                 </tr>
-              <?php endwhile; else: ?>
+              <?php endwhile;
+            else: ?>
               <tr>
                 <td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem;">
                   No expired supply records yet.
@@ -1525,7 +1533,7 @@ ORDER BY month
                 <th>Status</th>
               </tr>
               <?php
-              $expiring_meds = $conn->query("SELECT * FROM medicines WHERE expired_date <= CURDATE() + INTERVAL 1 DAY AND expired_date >= CURDATE()");
+              $expiring_meds = $conn->query('SELECT * FROM medicines WHERE expired_date <= CURDATE() + INTERVAL 1 DAY AND expired_date >= CURDATE()');
               while ($med = $expiring_meds->fetch_assoc()):
                 $balance = $med['quantity'];
                 $status = $balance <= 20 ? '⚠️ Low Stock' : '✅ In Stock';

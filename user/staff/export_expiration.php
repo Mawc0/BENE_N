@@ -7,7 +7,7 @@ ini_set('display_errors', 1);
 session_start();
 
 // Database connection
-include "../../db.php";
+include '../../db.php';
 
 // Set timezone
 date_default_timezone_set('Asia/Manila');
@@ -43,7 +43,7 @@ $format = $_GET['format'] ?? 'excel';
 // ============= EXPORT TO PDF =============
 if ($format === 'pdf') {
     // Load TCPDF
-    require_once('tcpdf/tcpdf.php');
+    require_once ('tcpdf/tcpdf.php');
 
     // Create new PDF document
     $pdf = new TCPDF();
@@ -58,7 +58,7 @@ if ($format === 'pdf') {
     // Set subtitle
     $pdf->SetFont('helvetica', '', 12);
     $pdf->Cell(0, 8, 'Generated on: ' . date('F j, Y, g:i a'), 0, 1, 'C');
-    $pdf->Ln(10); // Add space
+    $pdf->Ln(10);  // Add space
 
     // Create HTML table
     $html = '
@@ -83,8 +83,8 @@ if ($format === 'pdf') {
         <tr>
             <td>{$m['name']}</td>
             <td>{$m['type']}</td>
-            <td>" . date('M d, Y', strtotime($m['batch_date'])) . "</td>
-            <td>" . date('M d, Y', strtotime($m['expired_date'])) . "</td>
+            <td>" . date('M d, Y', strtotime($m['batch_date'])) . '</td>
+            <td>' . date('M d, Y', strtotime($m['expired_date'])) . "</td>
             <td>{$m['quantity']}</td>
             <td>{$m['status']}</td>
             <td>$daysText</td>
@@ -99,7 +99,6 @@ if ($format === 'pdf') {
     // Output PDF (download)
     $pdf->Output('expiration_report_' . date('Y-m-d') . '.pdf', 'D');
 }
-
 // ============= EXPORT TO EXCEL =============
 elseif ($format === 'excel') {
     // Set headers to force download as Excel file
@@ -130,8 +129,8 @@ elseif ($format === 'excel') {
         echo "<tr>
             <td>{$m['name']}</td>
             <td>{$m['type']}</td>
-            <td>" . date('M d, Y', strtotime($m['batch_date'])) . "</td>
-            <td>" . date('M d, Y', strtotime($m['expired_date'])) . "</td>
+            <td>" . date('M d, Y', strtotime($m['batch_date'])) . '</td>
+            <td>' . date('M d, Y', strtotime($m['expired_date'])) . "</td>
             <td>{$m['quantity']}</td>
             <td>{$m['status']}</td>
             <td>$daysText</td>

@@ -4,12 +4,12 @@ include '../db.php';
 
 $userId = $_SESSION['user_id'] ?? null;
 if (!$userId) {
-    header("Location: ../home_pages/login.php");
+    header('Location: ../home_pages/login.php');
     exit();
 }
 
-$stmt = $conn->prepare("SELECT password, force_password_change, force_security_setup, role FROM users WHERE id=?");
-$stmt->bind_param("i", $userId);
+$stmt = $conn->prepare('SELECT password, force_password_change, force_security_setup, role FROM users WHERE id=?');
+$stmt->bind_param('i', $userId);
 $stmt->execute();
 $user = $stmt->get_result()->fetch_assoc();
 
@@ -30,7 +30,7 @@ if (isset($_POST['submit_password'])) {
     } else {
         // store hashed password in session and move to step 2
         $_SESSION['pw_step2'] = password_hash($newPass, PASSWORD_DEFAULT);
-        header("Location: change_password.php");
+        header('Location: change_password.php');
         exit();
     }
 }
@@ -39,7 +39,7 @@ if (isset($_POST['submit_password'])) {
 if (isset($_POST['submit_security'])) {
     if (empty($_SESSION['pw_step2'])) {
         // session expired, restart
-        header("Location: change_password.php");
+        header('Location: change_password.php');
         exit();
     }
     $hash = $_SESSION['pw_step2'];
@@ -50,13 +50,13 @@ if (isset($_POST['submit_security'])) {
         $msg = 'error:Please fill in both the question and answer.';
         $step = 2;
     } else {
-        $stmt = $conn->prepare("UPDATE users SET password=?, force_password_change=0, force_security_setup=0, security_question=?, security_answer=? WHERE id=?");
-        $stmt->bind_param("sssi", $hash, $question, $answer, $userId);
+        $stmt = $conn->prepare('UPDATE users SET password=?, force_password_change=0, force_security_setup=0, security_question=?, security_answer=? WHERE id=?');
+        $stmt->bind_param('sssi', $hash, $question, $answer, $userId);
         if ($stmt->execute()) {
             unset($_SESSION['pw_step2']);
-            $_SESSION['success_msg'] = "Password and security question updated successfully.";
+            $_SESSION['success_msg'] = 'Password and security question updated successfully.';
             $_SESSION['redirect_to'] = $user['role'] === 'admin' ? 'admin/dashboard.php' : 'staff/dashboard.php';
-            header("Location: change_password.php");
+            header('Location: change_password.php');
             exit();
         } else {
             $msg = 'error:Failed to save. Please try again.';
@@ -68,7 +68,7 @@ if (isset($_POST['submit_security'])) {
 // ── BACK to step 1 ──
 if (isset($_GET['back'])) {
     unset($_SESSION['pw_step2']);
-    header("Location: change_password.php");
+    header('Location: change_password.php');
     exit();
 }
 ?>
@@ -141,7 +141,8 @@ if (isset($_GET['back'])) {
             </div>
 
             <?php
-            if (isset($_SESSION['success_msg'])): ?>
+            if (isset($_SESSION['success_msg'])):
+                ?>
                 <div class="alert success">
                     <i class="fas fa-check-circle" style="margin-right:6px;"></i>
                     <?= htmlspecialchars($_SESSION['success_msg']) ?>
@@ -149,18 +150,19 @@ if (isset($_GET['back'])) {
                         Redirecting to dashboard in 2 seconds...
                     </div>
                 </div>
-                <?php unset($_SESSION['success_msg']); endif;
+                <?php unset($_SESSION['success_msg']);
+            endif;
 
             $alerts = [];
             if ($user['force_password_change'] == 1)
-                $alerts[] = "You are using a temporary password. Please change it now.";
+                $alerts[] = 'You are using a temporary password. Please change it now.';
             if ($user['force_security_setup'] == 1)
-                $alerts[] = "Please set a security question for account recovery.";
+                $alerts[] = 'Please set a security question for account recovery.';
             if (!empty($alerts)): ?>
                 <div class="alert warning">
                     <strong>&#9888; Action required:</strong>
                     <ul><?php foreach ($alerts as $a)
-                        echo "<li>$a</li>"; ?></ul>
+                    echo "<li>$a</li>"; ?></ul>
                 </div>
             <?php endif;
 

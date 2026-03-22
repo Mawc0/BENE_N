@@ -17,10 +17,10 @@ require_once __DIR__ . '/config.php';
 $GROQ_API_KEY = GROQ_API_KEY;
 
 // 🗄️ Database
-include "../../db.php";
+include '../../db.php';
 $userMessage = trim($_POST['message'] ?? '');
 if (empty($userMessage)) {
-    echo json_encode(['reply' => "Please ask about medicines."]);
+    echo json_encode(['reply' => 'Please ask about medicines.']);
     exit;
 }
 
@@ -31,7 +31,7 @@ $twelveMonths = date('Y-m-d', strtotime('+12 months'));
 // 🔍 Helper: Find medicine by name
 function findMedicine($input, $conn)
 {
-    $stmt = $conn->query("SELECT name FROM medicines");
+    $stmt = $conn->query('SELECT name FROM medicines');
     while ($row = $stmt->fetch_assoc()) {
         if (stripos($input, strtolower($row['name'])) !== false) {
             return $row['name'];
@@ -76,13 +76,13 @@ $reply = null;
 switch ($intent) {
     // ✅ DONATION ELIGIBLE (10–12 months)
     case 'donation_eligible':
-        $stmt = $conn->prepare("
+        $stmt = $conn->prepare('
             SELECT name, type, expired_date, quantity
             FROM medicines
             WHERE expired_date > ? AND expired_date <= ?
             ORDER BY expired_date ASC
-        ");
-        $stmt->bind_param("ss", $tenMonths, $twelveMonths);
+        ');
+        $stmt->bind_param('ss', $tenMonths, $twelveMonths);
         $stmt->execute();
         $results = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         if ($results) {
@@ -93,19 +93,19 @@ switch ($intent) {
                 $reply .= "• **{$r['name']}** ({$r['type']}) – Expires in ~$months months ({$r['quantity']} units)\n";
             }
         } else {
-            $reply = "No medicines are currently eligible for donation (must expire in 10–12 months).";
+            $reply = 'No medicines are currently eligible for donation (must expire in 10–12 months).';
         }
         break;
 
     // ✅ DISPOSAL ELIGIBLE (≤10 months, not expired)
     case 'disposal_eligible':
-        $stmt = $conn->prepare("
+        $stmt = $conn->prepare('
             SELECT name, type, expired_date, quantity
             FROM medicines
             WHERE expired_date > ? AND expired_date <= ?
             ORDER BY expired_date ASC
-        ");
-        $stmt->bind_param("ss", $today, $tenMonths);
+        ');
+        $stmt->bind_param('ss', $today, $tenMonths);
         $stmt->execute();
         $results = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         if ($results) {
@@ -115,72 +115,72 @@ switch ($intent) {
                 $reply .= "• **{$r['name']}** ({$r['type']}) – Expires in " . round($days) . " days ({$r['quantity']} units)\n";
             }
         } else {
-            $reply = "No medicines are currently eligible for disposal (must expire within 10 months and not be expired).";
+            $reply = 'No medicines are currently eligible for disposal (must expire within 10 months and not be expired).';
         }
         break;
 
     // ✅ LATEST ADDED
     case 'latest_medicines':
-        $stmt = $conn->query("SELECT batch_date FROM medicines ORDER BY batch_date DESC, id DESC LIMIT 1");
+        $stmt = $conn->query('SELECT batch_date FROM medicines ORDER BY batch_date DESC, id DESC LIMIT 1');
         $latestBatch = $stmt->fetch_row()[0] ?? null;
         if ($latestBatch) {
-            $stmt = $conn->prepare("SELECT name, type, batch_date, expired_date, quantity FROM medicines WHERE batch_date = ? ORDER BY id DESC");
-            $stmt->bind_param("s", $latestBatch);
+            $stmt = $conn->prepare('SELECT name, type, batch_date, expired_date, quantity FROM medicines WHERE batch_date = ? ORDER BY id DESC');
+            $stmt->bind_param('s', $latestBatch);
             $stmt->execute();
             $results = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             if ($results) {
                 $count = count($results);
                 $interval = (new DateTime($latestBatch))->diff(new DateTime())->days;
                 $label = $interval == 0 ? 'today' : ($interval == 1 ? 'yesterday' : "$interval days ago");
-                $reply = "🆕 **Latest Medicine" . ($count > 1 ? "s" : "") . " Added ($count, $label):**\n";
+                $reply = '🆕 **Latest Medicine' . ($count > 1 ? 's' : '') . " Added ($count, $label):**\n";
                 foreach ($results as $r) {
-                    $status = $r['expired_date'] < $today ? "🔴 Expired" : "🟢 Active";
+                    $status = $r['expired_date'] < $today ? '🔴 Expired' : '🟢 Active';
                     $reply .= "• **{$r['name']}** ({$r['type']}) – Stock: {$r['quantity']} | Expiry: {$r['expired_date']} $status\n";
                 }
             } else {
-                $reply = "No medicines found for the latest batch.";
+                $reply = 'No medicines found for the latest batch.';
             }
         } else {
-            $reply = "No medicines in inventory yet.";
+            $reply = 'No medicines in inventory yet.';
         }
         break;
 
     // ✅ EXPIRED MEDICINES
     case 'expired_medicines_all':
-        $stmt = $conn->prepare("SELECT name, type, expired_date, quantity FROM medicines WHERE expired_date < ? ORDER BY expired_date ASC");
-        $stmt->bind_param("s", $today);
+        $stmt = $conn->prepare('SELECT name, type, expired_date, quantity FROM medicines WHERE expired_date < ? ORDER BY expired_date ASC');
+        $stmt->bind_param('s', $today);
         $stmt->execute();
         $results = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         if ($results) {
-            $reply = "❌ **Expired Medicines (" . count($results) . "):**\n";
+            $reply = '❌ **Expired Medicines (' . count($results) . "):**\n";
             foreach ($results as $r) {
                 $daysOverdue = (strtotime($today) - strtotime($r['expired_date'])) / 86400;
                 $reply .= "• **{$r['name']}** ({$r['type']}) – Expired {$r['expired_date']} ({$daysOverdue} days ago, {$r['quantity']} units)\n";
             }
         } else {
-            $reply = "🎉 No expired medicines found!";
+            $reply = '🎉 No expired medicines found!';
         }
         break;
 
     // ✅ TOTAL MEDICINES
     case 'total_medicines':
-        $stmt = $conn->query("SELECT COUNT(*) FROM medicines");
+        $stmt = $conn->query('SELECT COUNT(*) FROM medicines');
         $count = $stmt->fetch_row()[0];
         $reply = "📦 **Total Medicines**: $count";
         break;
 
     // ✅ LIST CATEGORIES
     case 'list_categories':
-        $stmt = $conn->query("SELECT name FROM categories ORDER BY name");
+        $stmt = $conn->query('SELECT name FROM categories ORDER BY name');
         $cats = [];
         while ($row = $stmt->fetch_assoc())
             $cats[] = $row['name'];
-        $reply = "📋 **Categories**: " . implode(", ", $cats);
+        $reply = '📋 **Categories**: ' . implode(', ', $cats);
         break;
 
     // ✅ TOTAL CATEGORIES
     case 'total_categories':
-        $stmt = $conn->query("SELECT COUNT(*) FROM categories");
+        $stmt = $conn->query('SELECT COUNT(*) FROM categories');
         $count = $stmt->fetch_row()[0];
         $reply = "📂 **Total Categories**: $count";
         break;
@@ -188,26 +188,26 @@ switch ($intent) {
     // ✅ STOCK
     case 'stock':
         if ($medicine) {
-            $stmt = $conn->prepare("SELECT name, quantity, expired_date FROM medicines WHERE name = ?");
-            $stmt->bind_param("s", $medicine);
+            $stmt = $conn->prepare('SELECT name, quantity, expired_date FROM medicines WHERE name = ?');
+            $stmt->bind_param('s', $medicine);
             $stmt->execute();
             $row = $stmt->get_result()->fetch_assoc();
             if ($row) {
-                $status = $row['expired_date'] < $today ? "🔴 Expired" : "🟢 Active";
+                $status = $row['expired_date'] < $today ? '🔴 Expired' : '🟢 Active';
                 $reply = "**{$row['name']}**\n• Stock: **{$row['quantity']} units**\n• Status: $status";
             } else {
-                $reply = "Medicine not found.";
+                $reply = 'Medicine not found.';
             }
         } else {
-            $reply = "Which medicine are you checking?";
+            $reply = 'Which medicine are you checking?';
         }
         break;
 
     // ✅ EXPIRY
     case 'expiry':
         if ($medicine) {
-            $stmt = $conn->prepare("SELECT expired_date FROM medicines WHERE name = ?");
-            $stmt->bind_param("s", $medicine);
+            $stmt = $conn->prepare('SELECT expired_date FROM medicines WHERE name = ?');
+            $stmt->bind_param('s', $medicine);
             $stmt->execute();
             $row = $stmt->get_result()->fetch_assoc();
             if ($row) {
@@ -218,28 +218,28 @@ switch ($intent) {
                     $reply = "$medicine expires in " . round($days) . " days (on {$row['expired_date']}).";
                 }
             } else {
-                $reply = "Medicine not found.";
+                $reply = 'Medicine not found.';
             }
         } else {
-            $reply = "Tell me the medicine name to check expiry.";
+            $reply = 'Tell me the medicine name to check expiry.';
         }
         break;
 
     // ✅ INFO
     case 'info':
         if ($medicine) {
-            $stmt = $conn->prepare("SELECT name, type, batch_date, expired_date, quantity FROM medicines WHERE name = ?");
-            $stmt->bind_param("s", $medicine);
+            $stmt = $conn->prepare('SELECT name, type, batch_date, expired_date, quantity FROM medicines WHERE name = ?');
+            $stmt->bind_param('s', $medicine);
             $stmt->execute();
             $row = $stmt->get_result()->fetch_assoc();
             if ($row) {
-                $status = $row['expired_date'] < $today ? "🔴 Expired" : "🟢 Active";
+                $status = $row['expired_date'] < $today ? '🔴 Expired' : '🟢 Active';
                 $reply = "**{$row['name']}** ({$row['type']})\n• Batch: {$row['batch_date']}\n• Expiry: {$row['expired_date']} $status\n• Stock: **{$row['quantity']} units**";
             } else {
-                $reply = "Medicine not found.";
+                $reply = 'Medicine not found.';
             }
         } else {
-            $reply = "Please specify a medicine name.";
+            $reply = 'Please specify a medicine name.';
         }
         break;
 }
@@ -248,15 +248,16 @@ switch ($intent) {
 if ($reply === null) {
     // Fetch full medicine list for AI context
     $medList = [];
-    $stmt = $conn->query("SELECT name, type, expired_date, quantity FROM medicines ORDER BY name");
+    $stmt = $conn->query('SELECT name, type, expired_date, quantity FROM medicines ORDER BY name');
     while ($r = $stmt->fetch_assoc()) {
         $medList[] = "{$r['name']} ({$r['type']}) - expires {$r['expired_date']}, stock: {$r['quantity']}";
     }
-    $medicineListStr = !empty($medList) ? implode("\n", $medList) : "None";
+    $medicineListStr = !empty($medList) ? implode("\n", $medList) : 'None';
 
     $systemPrompt = "You are BENE Asssist, AI assistant for BENE MediCon.
 CURRENT INVENTORY:
-- Medicines:\n$medicineListStr
+- Medicines:
+$medicineListStr
 
 RULES:
 1. ONLY use medicine names from the list above.
@@ -273,19 +274,19 @@ Answer the user:";
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-        "model" => "llama-3.1-8b-instant",
-        "messages" => [
-            ["role" => "system", "content" => $systemPrompt],
-            ["role" => "user", "content" => $userMessage]
+        'model' => 'llama-3.1-8b-instant',
+        'messages' => [
+            ['role' => 'system', 'content' => $systemPrompt],
+            ['role' => 'user', 'content' => $userMessage]
         ],
-        "temperature" => 0.3,
-        "max_tokens" => 300
+        'temperature' => 0.3,
+        'max_tokens' => 300
     ]));
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         "Authorization: Bearer $GROQ_API_KEY",
-        "Content-Type: application/json"
+        'Content-Type: application/json'
     ]);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Required on Hostinger
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);  // Required on Hostinger
 
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -296,7 +297,7 @@ Answer the user:";
         $reply = $data['choices'][0]['message']['content'] ?? "I couldn't process that.";
         $reply = trim(preg_replace('/\s+/', ' ', $reply));
     } else {
-        $reply = "⚠️ BENE Assist is offline. Ask about stock, expiry, donation, or disposal.";
+        $reply = '⚠️ BENE Assist is offline. Ask about stock, expiry, donation, or disposal.';
     }
 }
 
