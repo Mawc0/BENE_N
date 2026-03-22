@@ -1,7 +1,10 @@
 <?php
 session_start();
+
+// Database connection
 include('../../db.php');
 
+// Access control: Only allow admins
 if (!isset($_SESSION['username']) || $_SESSION['role'] !== 'admin') {
   header("Location: ../../home_pages/login.php");
   exit;
@@ -371,6 +374,7 @@ if ($page === 'schedules') {
     ");
 }
 
+// FUNCTION: Check schedules and create notifications
 function checkSchedules()
 {
   global $conn;
@@ -444,7 +448,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
 
 <body>
 
-  <!-- ══ MODALS ══ -->
+  <!-- Modals -->
   <div id="logoutModal" class="modal" style="display:none;">
     <div class="modal-content">
       <div class="modal-header">
@@ -519,7 +523,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
     </div>
   </div>
 
-  <!-- ══ SIDEBAR ══ -->
+  <!-- Sidebar -->
   <div class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <button id="hamburger" class="hamburger-btn" title="Toggle menu">
@@ -563,7 +567,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
     </div>
   </div>
 
-  <!-- ══ TOPBAR ══ -->
+  <!-- Topbar  -->
   <div class="topbar" id="topbar">
     <span class="topbar-title">
       <?php
@@ -582,7 +586,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
     </span>
 
     <div class="topbar-right">
-      <!-- notification bell -->
+      <!-- Notification Bell -->
       <a href="dashboard.php?page=notifications" class="topbar-notif" title="Notifications">
         <i class="fas fa-bell"></i>
         <?php if ($unreadCount > 0): ?>
@@ -592,21 +596,19 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
 
       <div class="topbar-divider"></div>
 
-      <!-- profile -->
+      <!-- Profile -->
       <?php
-      $pic      = $_SESSION['profile_pic'] ?? '';
-      $role     = $_SESSION['role'] ?? 'admin';
+      $pic = $_SESSION['profile_pic'] ?? '';
+      $role = $_SESSION['role'] ?? 'admin';
       $fallback = $role === 'admin' ? 'A' : ($role === 'guest' ? 'G' : 'S');
       ?>
 
       <div class="profile-menu">
         <button class="profile-btn" onclick="toggleProfileMenu()" type="button">
           <?php if (!empty($pic) && $pic !== 'default.jpg'): ?>
-            <img src="../../uploads/avatars/<?= htmlspecialchars($pic) ?>"
-                alt="Profile"
-                class="profile-avatar"
-                style="width:30px;height:30px;border-radius:8px;object-fit:cover;border:2px solid rgba(201,168,76,0.4);"
-                onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+            <img src="../../uploads/avatars/<?= htmlspecialchars($pic) ?>" alt="Profile" class="profile-avatar"
+              style="width:30px;height:30px;border-radius:8px;object-fit:cover;border:2px solid rgba(201,168,76,0.4);"
+              onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
             <div class="profile-avatar" style="display:none;"><?= $fallback ?></div>
           <?php else: ?>
             <div class="profile-avatar"><?= $fallback ?></div>
@@ -639,7 +641,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
     </div>
   </div>
 
-  <!-- ══ MAIN CONTENT ══ -->
+  <!-- Main Content  -->
   <div class="main-content" id="mainContent">
 
     <?php if ($page === 'notifications'): ?>
@@ -793,7 +795,8 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
             <label>Username</label>
             <input type="text" name="username" value="<?= htmlspecialchars($editUser['username']) ?>" required>
             <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1rem;">Role:
-              <strong><?= ucfirst($editUser['role']) ?></strong></p>
+              <strong><?= ucfirst($editUser['role']) ?></strong>
+            </p>
             <button type="submit" name="update_user" class="btn"><i class="fas fa-save"></i> Update User</button>
             <a class="btn btn-grey" href="dashboard.php?page=manage_users" style="margin-left:6px;">Cancel</a>
           <?php else: ?>

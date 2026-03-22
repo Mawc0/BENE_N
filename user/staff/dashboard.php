@@ -1,9 +1,13 @@
 <?php
 session_start();
 date_default_timezone_set('Asia/Manila');
+
 // Database connection
 include "../../db.php";
 
+// Access control: Only allow staff and guests
+// Redirect guests to a limited dashboard
+// Notifies new Staff to change password and set security question
 $userId = $_SESSION['user_id'] ?? null;
 if ($userId) {
   $stmt = $conn->prepare("SELECT username, role, profile_pic, force_password_change, force_security_setup FROM users WHERE id = ?");
@@ -36,7 +40,7 @@ if ($userId) {
 $isGuest = ($_SESSION['role'] ?? '') === 'guest';
 
 
-// =============== 🎁 DONATION REQUEST HANDLER ===============
+// Donation Request Handler
 if (isset($_GET['donate']) && $userId) {
   if ($isGuest) {
     $_SESSION['toast'] = ['message' => "⚠️ Guests cannot submit donation requests.", 'type' => 'error'];
@@ -91,9 +95,8 @@ if (isset($_GET['donate']) && $userId) {
   header("Location: staff_dashboard.php?page=donate");
   exit();
 }
-// ==========================================================
 
-// =============== 🗑️ DISPOSAL REQUEST HANDLER ===============
+// Disposal Request Handler
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_disposal']) && $userId) {
   if ($isGuest) {
     $_SESSION['toast'] = ['message' => "⚠️ Guests cannot dispose of items.", 'type' => 'error'];
@@ -144,7 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_disposal']) &
     $update->bind_param("i", $medicineId);
     $update->execute();
 
-    // 3. 🔔 NOTIFY ALL ADMINS
+    // 3. Notify all admins about the disposal
     $notify = $conn->prepare("
             INSERT INTO notifications (user_id, message, is_read, created_at)
             SELECT id, CONCAT(?, ' has disposed of medicine \"', ?, '\".'), 0, NOW()
@@ -153,7 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_disposal']) &
     $notify->bind_param("ss", $_SESSION['username'], $med['name']);
     $notify->execute();
 
-    // 4. 📝 LOG THE ACTION FOR AUDIT
+    // 4. Log the action in logs table
     $logMsg = "Staff {$_SESSION['username']} disposed of \"{$med['name']}\" via: " . substr($disposalMethod, 0, 100);
     $logStmt = $conn->prepare("INSERT INTO logs (user, action) VALUES ('admin', ?)");
     $logStmt->bind_param("s", $logMsg);
@@ -171,7 +174,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_disposal']) &
   header("Location: staff_dashboard.php?page=donate");
   exit();
 }
-// ==========================================================
 
 // Fetch categories from database
 $categoryResult = $conn->query("SELECT name FROM categories ORDER BY id");
@@ -338,7 +340,7 @@ if (isset($_GET['edit'])) {
     $edit_data = $edit_result->fetch_assoc();
   }
 }
-// === FUNCTION: Log expired medicines automatically ===
+// FUNCTION: Log expired medicines automatically 
 function logExpiredMedicines($conn)
 {
   $today = date('Y-m-d');
@@ -361,7 +363,7 @@ function logExpiredMedicines($conn)
         ");
     $insert->bind_param(
       "issssis",
-      $row['id'],               // ← this goes into medicine_id
+      $row['id'],               // Goes into medicine_id
       $row['name'],
       $row['type'],
       $row['batch_date'],
@@ -427,6 +429,7 @@ if ($userId) {
 </head>
 
 <body>
+  <!-- Logout Confirmation Modal -->
   <div id="logoutModal" class="modal" style="display:none;">
     <div class="modal-content"
       style="max-width: 400px; border-radius: 16px; padding: 1.6rem; box-shadow: 0 20px 60px rgba(0,0,0,0.25);">
@@ -447,7 +450,8 @@ if ($userId) {
       </div>
     </div>
   </div>
-  <!-- ══ SIDEBAR ══ -->
+
+  <!-- Sidebar -->
   <div class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <button class="hamburger-btn" id="hamburger">
@@ -486,7 +490,7 @@ if ($userId) {
     </div>
   </div>
 
-  <!-- ══ TOPBAR ══ -->
+  <!-- Topbar -->
   <div class="topbar" id="topbar">
     <span class="topbar-title" id="topbar-title">Dashboard</span>
     <div class="topbar-right">
@@ -497,23 +501,20 @@ if ($userId) {
         <?php endif; ?>
       </button>
       <div class="topbar-divider"></div>
-      
-      <!-- profile -->
 
+      <!-- Profile -->
       <?php
-      $pic      = $_SESSION['profile_pic'] ?? '';
-      $role     = $_SESSION['role'] ?? 'admin';
+      $pic = $_SESSION['profile_pic'] ?? '';
+      $role = $_SESSION['role'] ?? 'admin';
       $fallback = $role === 'admin' ? 'A' : ($role === 'guest' ? 'G' : 'S');
       ?>
 
       <div class="profile-menu">
         <button class="profile-btn" onclick="toggleProfileMenu()" type="button">
           <?php if (!empty($pic) && $pic !== 'default.jpg'): ?>
-            <img src="../../uploads/avatars/<?= htmlspecialchars($pic) ?>"
-                alt="Profile"
-                class="profile-avatar"
-                style="width:30px;height:30px;border-radius:8px;object-fit:cover;border:2px solid rgba(201,168,76,0.4);"
-                onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+            <img src="../../uploads/avatars/<?= htmlspecialchars($pic) ?>" alt="Profile" class="profile-avatar"
+              style="width:30px;height:30px;border-radius:8px;object-fit:cover;border:2px solid rgba(201,168,76,0.4);"
+              onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
             <div class="profile-avatar" style="display:none;"><?= $fallback ?></div>
           <?php else: ?>
             <div class="profile-avatar"><?= $fallback ?></div>
@@ -592,6 +593,7 @@ if ($userId) {
       </div>
       <p>Welcome to the <strong>BENE MediCon Inventory System</strong>. Use the sidebar to manage medicines, check
         expirations, and more.</p>
+
       <!-- Charts Grid -->
       <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 1.4rem 0;">
         <div
@@ -794,12 +796,10 @@ ORDER BY month
       </script>
     </div>
 
-
-
     <div id="content-inventory" class="content">
       <h1>Inventory</h1>
 
-      <!-- ── toolbar: search + add ── -->
+      <!-- Toolbar: Search + Add -->
       <div style="display:flex; gap:10px; align-items:center; margin-bottom:1rem; flex-wrap:wrap;">
         <input type="text" id="inventory-search" placeholder="&#128269; Search by name..." style="flex:1; min-width:180px; height:38px; padding:0 12px;
                   border:1.5px solid var(--border); border-radius:8px;
@@ -813,7 +813,7 @@ ORDER BY month
         <?php endif; ?>
       </div>
 
-      <!-- ── category filter pills ── -->
+      <!-- Category Filter Pills -->
       <div id="inv-category-pills" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:1.2rem;">
         <button class="inv-pill active" onclick="filterInventory('all', this)">All</button>
         <?php foreach ($categories as $cat): ?>
@@ -823,7 +823,7 @@ ORDER BY month
         <?php endforeach; ?>
       </div>
 
-      <!-- ── unified table ── -->
+      <!-- Unified Table -->
       <div class="table-wrap">
         <table id="inventory-table">
           <thead>
@@ -875,7 +875,7 @@ ORDER BY month
                   <td>
                     <?php if (!$isExpired): ?>
                       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-                        <!-- add stock -->
+                        <!-- Add stock -->
                         <form method="POST" style="display:inline-flex;align-items:center;gap:4px;">
                           <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
                           <input type="hidden" name="action" value="add">
@@ -884,7 +884,7 @@ ORDER BY month
                           <button type="submit" name="adjust_stock" class="btn btn-add"
                             style="height:30px;padding:0 8px;font-size:0.75rem;">+ Add</button>
                         </form>
-                        <!-- use stock -->
+                        <!-- Use stock -->
                         <form method="POST" style="display:inline-flex;align-items:center;gap:4px;">
                           <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
                           <input type="hidden" name="action" value="use">
@@ -894,7 +894,7 @@ ORDER BY month
                             style="height:30px;padding:0 8px;font-size:0.75rem;" onclick="return confirm('Use this stock?')">−
                             Use</button>
                         </form>
-                        <!-- edit & delete -->
+                        <!-- Edit & Delete -->
                         <button onclick="openEditModal(<?= (int) $row['id'] ?>)" class="btn btn-info"
                           style="height:30px;padding:0 8px;font-size:0.75rem;background:#0288d1;">
                           <i class="fas fa-edit"></i>
@@ -978,18 +978,18 @@ ORDER BY month
     <div id="content-expiration" class="content">
       <h1>Expiry Tracker</h1>
 
-      <!-- toolbar: filters + actions -->
+      <!-- Toolbar: Filters + Actions -->
       <div
         style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:1rem;">
 
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-          <!-- status pills -->
+          <!-- Status Pills -->
           <button class="inv-pill active" id="exp-pill-all" onclick="expFilter('all',      this)">All</button>
           <button class="inv-pill" id="exp-pill-expiring" onclick="expFilter('expiring',  this)">Expiring Soon</button>
           <button class="inv-pill" id="exp-pill-expired" onclick="expFilter('expired',   this)">Expired</button>
           <button class="inv-pill" id="exp-pill-low" onclick="expFilter('low',       this)">Low Stock</button>
 
-          <!-- category dropdown -->
+          <!-- Category Dropdown -->
           <select id="expiry-category-filter" onchange="applyExpiryFilter()" style="height:32px; padding:0 10px; border:1.5px solid var(--border);
                      border-radius:20px; font-family:'DM Sans',sans-serif;
                      font-size:0.8rem; color:var(--text-muted); outline:none; cursor:pointer;">
@@ -1000,7 +1000,7 @@ ORDER BY month
           </select>
         </div>
 
-        <!-- print + export -->
+        <!-- Print + Export -->
         <div style="display:flex; gap:8px;">
           <button onclick="printReport('expiry-full-table')" class="btn" style="background:#0288d1;">
             <i class="fas fa-print"></i> Print
@@ -1011,7 +1011,7 @@ ORDER BY month
         </div>
       </div>
 
-      <!-- table -->
+      <!-- Table -->
       <div class="table-wrap">
         <table id="expiry-full-table">
           <thead>
@@ -1079,7 +1079,7 @@ ORDER BY month
           </tbody>
         </table>
 
-        <!-- pagination -->
+        <!-- Pagination -->
         <div class="inv-pagination" id="exp-pagination">
           <span id="exp-page-info">Showing 1–10</span>
           <div class="inv-pages" id="exp-pages"></div>
@@ -1094,11 +1094,11 @@ ORDER BY month
     </div>
 
 
-    <!-- =============== 🎁 DONATION PAGE =============== -->
+    <!-- Donation Page -->
     <div id="content-donate" class="content">
       <h1>Donate or Dispose</h1>
 
-      <!-- collapsible tips -->
+      <!-- Collapsible Tips -->
       <details style="margin-bottom:1.2rem;">
         <summary style="cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--red-dark);
                     padding:0.7rem 1rem;background:#fdf4f4;border:1px solid #f0d8d8;
@@ -1128,7 +1128,7 @@ ORDER BY month
         </div>
       </details>
 
-      <!-- sub-tab pills -->
+      <!-- Sub-tab Pills -->
       <div style="display:flex;gap:8px;margin-bottom:1.2rem;">
         <button class="inv-pill active" id="donate-pill" onclick="switchDonateView('donate', this)">
           <i class="fas fa-gift" style="margin-right:5px;"></i>Donate <span
@@ -1288,11 +1288,11 @@ ORDER BY month
 
 
 
-    <!-- =============== 📦 MY REQUESTS =============== -->
+    <!-- My Requests -->
     <div id="content-donation-history" class="content">
       <h1>My Requests</h1>
 
-      <!-- sub-tab pills -->
+      <!-- Sub-tab Pills -->
       <div style="display:flex;gap:8px;margin-bottom:1.2rem;">
         <button class="inv-pill active" id="req-pill-donations" onclick="switchRequestView('donations', this)">
           <i class="fas fa-gift" style="margin-right:5px;"></i>Donation Requests
@@ -1405,14 +1405,14 @@ ORDER BY month
       </div>
     </div>
 
-    <!-- =============== 📋 EXPIRED SUPPLY HISTORY =============== -->
+    <!-- Expired Supply History -->
     <div id="content-expired-history" class="content">
       <h1>Expired Supply History</h1>
       <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:1.2rem;">
         A log of all medicines that have expired and been automatically removed from active inventory.
       </p>
 
-      <!-- toolbar: search + category filter + export -->
+      <!-- Toolbar: Search + Category Filter + Export -->
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:1rem;">
         <input type="text" id="exp-history-search" placeholder="&#128269; Search by name..." style="flex:1;min-width:180px;height:38px;padding:0 12px;
                     border:1.5px solid var(--border);border-radius:8px;
@@ -1434,7 +1434,7 @@ ORDER BY month
         </a>
       </div>
 
-      <!-- table -->
+      <!-- Table -->
       <div class="table-wrap">
         <table id="expired-history-table">
           <thead>
@@ -1491,7 +1491,7 @@ ORDER BY month
           </tbody>
         </table>
 
-        <!-- pagination -->
+        <!-- Pagination -->
         <div class="inv-pagination" id="exp-history-pagination">
           <span id="exp-history-page-info">Showing 1–10</span>
           <div class="inv-pages" id="exp-history-pages"></div>
@@ -1504,7 +1504,7 @@ ORDER BY month
       </p>
     </div>
 
-    <!-- Profile Menu -->
+    <!-- Modals + Chatbot -->
     <!-- Expiring Medicines Modal -->
     <div id="notificationModal" class="modal">
       <div class="modal-content">
@@ -1667,7 +1667,7 @@ ORDER BY month
     </script>
     <script src="../../scripts/s_dashboard.js"></script>
     <script>
-      // ── Records section wiring ──
+      // Records section wiring
       (function () {
         const btnExpiredHistory = document.getElementById('btn-expired-history');
         const contentExpiredHistory = document.getElementById('content-expired-history');
@@ -1681,7 +1681,7 @@ ORDER BY month
           btnExpiredHistory.addEventListener('click', () => showSection('expiredHistory'));
         }
 
-        // ── Expired History filter + pagination ──
+        // Expired History Filter + Pagination 
         const EH_PAGE_SIZE = 10;
         let ehCurrentPage = 1;
 
@@ -1756,10 +1756,10 @@ ORDER BY month
           pages.appendChild(next);
         }
 
-        // expose for inline onchange on the category select
+        // Expose for inline onchange on the category select
         window.applyExpiredHistoryFilter = applyExpiredHistoryFilter;
 
-        // hook up search input + run on load
+        // Hook up search input + run on load
         document.addEventListener('DOMContentLoaded', () => {
           const searchInput = document.getElementById('exp-history-search');
           if (searchInput) searchInput.addEventListener('input', () => {
