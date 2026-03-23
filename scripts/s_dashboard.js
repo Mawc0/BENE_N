@@ -569,19 +569,6 @@ if (SpeechRecognition) {
   };
 }
 
-function printReport(tableId) {
-  const printContent = document.getElementById(tableId).outerHTML;
-  const originalContent = document.body.innerHTML;
-  document.body.innerHTML = `
-    <h2>BENE MediCon - Expiration Inventory Report</h2>
-    <p><strong>Generated on:</strong> ${new Date().toLocaleString()}</p>
-    ${printContent}
-    `;
-  window.print();
-  document.body.innerHTML = originalContent;
-  location.reload();
-}
-
 function toggleProfileMenu() {
   const dropdown = document.getElementById("profileDropdown");
   dropdown.classList.toggle("show");

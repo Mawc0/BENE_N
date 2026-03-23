@@ -1300,11 +1300,11 @@ ORDER BY month
 
         <!-- Print + Export -->
         <div style="display:flex; gap:8px;">
-          <button onclick="printReport('expiry-full-table')" class="btn" style="background:#0288d1;">
+          <button onclick="printExpiryTracker()" class="btn" style="background:#0288d1;">
             <i class="fas fa-print"></i> Print
           </button>
-          <a href="export_expiration.php?format=excel" class="btn btn-add">
-            <i class="fas fa-file-excel"></i> Export
+          <a href="export_expiration.php?format=excel" class="btn btn-add" onclick="exportExpiryTracker(event)">
+            <i class="fas fa-file-excel"></i> Export CSV
           </a>
         </div>
       </div>
@@ -1389,6 +1389,136 @@ ORDER BY month
           &#10003; No medicines expiring within 7 days or already expired.
         </p>
       <?php endif; ?>
+
+      <script>
+      // ── Expiry Tracker — Print ───────────────────────────────────────────────
+      function printExpiryTracker() {
+        const statusPill  = document.querySelector('#content-expiration .inv-pill.active');
+        const statusLabel = statusPill ? statusPill.textContent.trim() : 'All';
+        const catFilter   = document.getElementById('expiry-category-filter')?.value || '';
+        const filterNote  = [
+          statusLabel !== 'All' ? `Status: "${statusLabel}"` : '',
+          catFilter             ? `Category: "${catFilter}"` : '',
+        ].filter(Boolean).join(' | ') || 'All records';
+
+        const generated = new Date().toLocaleString('en-PH', {
+          year: 'numeric', month: 'long', day: 'numeric',
+          hour: '2-digit', minute: '2-digit'
+        });
+
+        const allRows  = [...document.querySelectorAll('#expiry-full-table tbody tr')];
+        const bodyRows = allRows
+          .filter(tr => tr.style.display !== 'none' && tr.querySelectorAll('td').length >= 8)
+          .map(tr => {
+            const tds       = tr.querySelectorAll('td');
+            const isExp     = tr.dataset.status === 'expired';
+            const isLow     = tr.dataset.status === 'low';
+            const rowBg     = isExp ? '#fff1f1' : (isLow ? '#fffbeb' : '');
+            const days      = tds[5].textContent.trim();
+            const daysColor = isExp ? '#dc2626' : (days === 'Today' ? '#d97706' : '#111');
+            const statusTxt = tds[7].textContent.trim();
+            const statusColor = isExp ? '#dc2626' : (isLow ? '#d97706' : '#059669');
+            return `<tr style="background:${rowBg};">
+              <td style="font-weight:600;">${tds[1].textContent.trim()}</td>
+              <td>${tds[2].textContent.trim()}</td>
+              <td>${tds[3].textContent.trim()}</td>
+              <td>${tds[4].textContent.trim()}</td>
+              <td style="text-align:center;font-weight:700;color:${daysColor};">${days}</td>
+              <td style="text-align:center;font-weight:600;">${tds[6].textContent.trim()}</td>
+              <td style="font-weight:600;color:${statusColor};">${statusTxt}</td>
+            </tr>`;
+          }).join('');
+
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Expiry Tracker Report</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=EB+Garamond:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'DM Sans',sans-serif; color:#111; padding:28px 36px; font-size:12px; }
+    .header { text-align:center; border-bottom:2px solid #9b1c1c; padding-bottom:12px; margin-bottom:16px; }
+    .header h1 { font-family:'EB Garamond',serif; font-size:20px; color:#5c0a0a; margin-bottom:3px; }
+    .header p  { color:#6b7280; font-size:11px; }
+    .filter-badge { display:inline-block; background:#fef2f2; color:#9b1c1c; border-radius:5px; padding:2px 8px; font-size:11px; font-weight:600; margin-top:5px; }
+    .legend { display:flex; gap:16px; margin-bottom:12px; font-size:11px; flex-wrap:wrap; }
+    .legend span { display:inline-flex; align-items:center; gap:5px; }
+    .swatch { width:12px; height:12px; border-radius:3px; display:inline-block; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { border:1px solid #e5e7eb; padding:5px 8px; }
+    th { background:#fef2f2; color:#9b1c1c; font-weight:600; font-size:11px; text-align:left; }
+    tr:nth-child(even) td { filter:brightness(0.97); }
+    .footer { margin-top:20px; text-align:right; font-size:10px; color:#9ca3af; border-top:1px solid #e5e7eb; padding-top:8px; }
+    @media print { body { padding:14px 18px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>BENE MediCon — Expiry Tracker</h1>
+    <p>Generated: ${generated}</p>
+    <span class="filter-badge">Filter: ${filterNote}</span>
+  </div>
+  <div class="legend">
+    <span><span class="swatch" style="background:#fff1f1;border:1px solid #fecaca;"></span> Expired</span>
+    <span><span class="swatch" style="background:#fffbeb;border:1px solid #fde68a;"></span> Low Stock</span>
+    <span><span class="swatch" style="background:#fff;border:1px solid #e5e7eb;"></span> Valid / Expiring Soon</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Medicine Name</th>
+        <th>Category</th>
+        <th>Batch Date</th>
+        <th>Expiry Date</th>
+        <th style="text-align:center;">Days Left</th>
+        <th style="text-align:center;">Qty</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>${bodyRows || '<tr><td colspan="7" style="text-align:center;color:#9ca3af;padding:16px;">No records found.</td></tr>'}</tbody>
+  </table>
+  <div class="footer">BENE MediCon Inventory System &bull; Expiry Tracker &bull; Printed ${generated}</div>
+</body>
+</html>`;
+
+        const w = window.open('', '_blank', 'width=1000,height=700');
+        w.document.write(html);
+        w.document.close();
+        w.onload = () => setTimeout(() => { w.print(); }, 600);
+      }
+
+      // ── Expiry Tracker — Export CSV ──────────────────────────────────────────
+      function exportExpiryTracker(e) {
+        e.preventDefault();
+        const allRows = [...document.querySelectorAll('#expiry-full-table tbody tr')];
+        const lines   = [['Name', 'Category', 'Batch Date', 'Expiry Date', 'Days Left', 'Qty', 'Status']];
+        allRows
+          .filter(tr => tr.style.display !== 'none' && tr.querySelectorAll('td').length >= 8)
+          .forEach(tr => {
+            const tds = tr.querySelectorAll('td');
+            lines.push([
+              tds[1].textContent.trim(),
+              tds[2].textContent.trim(),
+              tds[3].textContent.trim(),
+              tds[4].textContent.trim(),
+              tds[5].textContent.trim(),
+              tds[6].textContent.trim(),
+              tds[7].textContent.trim(),
+            ]);
+          });
+        const csv  = lines.map(r => r.map(v => '"' + v.replace(/"/g, '""') + '"').join(',')).join('\r\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = 'expiry_tracker_' + new Date().toISOString().slice(0, 10) + '.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+      </script>
     </div>
 
 
@@ -1985,25 +2115,140 @@ ORDER BY month
 
       <script>
         function printMonthlyReport() {
-          const printContents = document.getElementById('monthly-report-printable').innerHTML;
-          const header = document.getElementById('report-print-header');
-          header.style.display = 'block';
-          const w = window.open('', '_blank');
-          w.document.write(`<!DOCTYPE html><html><head>
-            <title>Monthly Stock Report — <?= $reportMonthLabel ?></title>
-            <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=EB+Garamond:wght@400;600&display=swap" rel="stylesheet">
-            <style>
-              body { font-family:'DM Sans',sans-serif; color:#111; margin:24px; }
-              table { width:100%; border-collapse:collapse; margin-bottom:16px; }
-              th, td { border:1px solid #e5e7eb; padding:6px 10px; font-size:12px; }
-              th { background:#fef2f2; color:#9b1c1c; }
-              @media print { button { display:none; } }
-            </style>
-          </head><body onload="window.print();window.close();">`);
-          w.document.write(printContents);
-          w.document.write('</body></html>');
+          // Capture the chart canvas as a PNG data-URL before opening print window
+          const chartCanvas = document.getElementById('monthlyUsageChart');
+          const chartImg    = chartCanvas ? chartCanvas.toDataURL('image/png') : null;
+
+          const month = <?= json_encode($reportMonthLabel) ?>;
+          const generated = new Date().toLocaleString('en-PH', {
+            year:'numeric', month:'long', day:'numeric',
+            hour:'2-digit', minute:'2-digit'
+          });
+
+          // Collect summary card data from the DOM
+          function cardVal(idx) {
+            const cards = document.querySelectorAll('#monthly-report-printable > div:first-of-type > div');
+            return cards[idx] ? cards[idx].querySelector('div').textContent.trim() : '—';
+          }
+
+          // Build summary rows from PHP data embedded as JSON
+          const summaryData = [
+            ['Active Medicines',     <?= (int)$rTotal['c'] ?>,   '<?= number_format((int)$rTotal['q']) ?> units total'],
+            ['Added This Month',     <?= (int)$rAdded['c'] ?>,   '<?= number_format((int)$rAdded['q']) ?> units added'],
+            ['Usage Transactions',   <?= (int)$rUsed['entries'] ?>, '<?= number_format((int)$rUsed['total_used']) ?> units used'],
+            ['Expired This Month',   <?= (int)$rExpired['c'] ?>, '<?= number_format((int)$rExpired['q']) ?> units lost'],
+            ['Low Stock Items',      <?= $rLowStockCount ?>,     'Below <?= $LOW_STOCK_THRESHOLD ?> units'],
+          ];
+
+          const usageByCat = <?= json_encode($rUsageByCat) ?>;
+          const topUsed    = <?= json_encode($rTopUsed) ?>;
+          const lowStock   = <?= json_encode($lowStockItems) ?>;
+          const threshold  = <?= $LOW_STOCK_THRESHOLD ?>;
+
+          const summaryRows = summaryData.map(([label, val, sub]) =>
+            `<tr><td>${label}</td><td style="text-align:center;font-weight:700;">${val}</td><td style="color:#6b7280;">${sub}</td></tr>`
+          ).join('');
+
+          const catRows = usageByCat.length
+            ? usageByCat.map(r => `<tr><td>${r.category}</td><td style="text-align:right;font-weight:600;">${parseInt(r.total_used).toLocaleString()}</td></tr>`).join('')
+            : '<tr><td colspan="2" style="text-align:center;color:#9ca3af;">No data</td></tr>';
+
+          const topRows = topUsed.length
+            ? topUsed.map((r,i) => `<tr><td style="color:#9ca3af;font-weight:700;">${i+1}</td><td style="font-weight:600;">${r.medicine_name}</td><td style="text-align:right;font-weight:600;">${parseInt(r.total_used).toLocaleString()} ${r.unit}</td></tr>`).join('')
+            : '<tr><td colspan="3" style="text-align:center;color:#9ca3af;">No data</td></tr>';
+
+          const lowStockSection = lowStock.length ? `
+            <h3 style="color:#9b1c1c;font-size:13px;margin:20px 0 8px;border-bottom:1px solid #fecaca;padding-bottom:4px;">
+              ⚠️ Current Low Stock Items (≤ ${threshold} units)
+            </h3>
+            <table>
+              <thead><tr><th>Medicine</th><th>Category</th><th style="text-align:center;">Qty Remaining</th><th>Expiry Date</th></tr></thead>
+              <tbody>
+                ${lowStock.map(ls => `<tr>
+                  <td style="font-weight:600;">${ls.name}</td>
+                  <td>${ls.type}</td>
+                  <td style="text-align:center;color:#dc2626;font-weight:700;">${ls.quantity}</td>
+                  <td>${ls.expired_date}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>` : '';
+
+          const chartSection = chartImg
+            ? `<div style="margin-top:20px;">
+                <h3 style="color:#9b1c1c;font-size:13px;margin-bottom:8px;border-bottom:1px solid #fecaca;padding-bottom:4px;">
+                  📊 Units Used by Category
+                </h3>
+                <img src="${chartImg}" style="width:100%;max-width:640px;border:1px solid #e5e7eb;border-radius:6px;" />
+              </div>` : '';
+
+          const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Monthly Stock Report — ${month}</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=EB+Garamond:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; color: #111; background: #fff; padding: 32px 40px; font-size: 13px; }
+    .header { text-align: center; border-bottom: 2px solid #9b1c1c; padding-bottom: 14px; margin-bottom: 20px; }
+    .header h1 { font-family: 'EB Garamond', serif; font-size: 22px; color: #5c0a0a; margin-bottom: 4px; }
+    .header p  { color: #6b7280; font-size: 12px; }
+    .header .month-badge { display:inline-block; background:#fef2f2; color:#9b1c1c; border-radius:6px; padding:2px 10px; font-weight:700; font-size:13px; margin-top:4px; }
+    h3 { color: #9b1c1c; font-size: 13px; margin: 20px 0 8px; border-bottom: 1px solid #fecaca; padding-bottom: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 12px; }
+    th, td { border: 1px solid #e5e7eb; padding: 6px 9px; }
+    th { background: #fef2f2; color: #9b1c1c; font-weight: 600; text-align: left; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 4px; }
+    .footer { margin-top: 28px; text-align: right; font-size: 11px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 10px; }
+    @media print {
+      body { padding: 16px 20px; }
+      .two-col { display: table; width: 100%; }
+      .two-col > div { display: table-cell; width: 50%; vertical-align: top; padding-right: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>BENE MediCon — Monthly Stock Report</h1>
+    <span class="month-badge">${month}</span>
+    <p style="margin-top:6px;">Generated: ${generated}</p>
+  </div>
+
+  <h3>📋 Summary</h3>
+  <table>
+    <thead><tr><th>Metric</th><th style="text-align:center;">Count</th><th>Detail</th></tr></thead>
+    <tbody>${summaryRows}</tbody>
+  </table>
+
+  <div class="two-col">
+    <div>
+      <h3>🏷️ Usage by Category</h3>
+      <table>
+        <thead><tr><th>Category</th><th style="text-align:right;">Units Used</th></tr></thead>
+        <tbody>${catRows}</tbody>
+      </table>
+    </div>
+    <div>
+      <h3>🔥 Top 5 Most Used</h3>
+      <table>
+        <thead><tr><th>#</th><th>Medicine</th><th style="text-align:right;">Used</th></tr></thead>
+        <tbody>${topRows}</tbody>
+      </table>
+    </div>
+  </div>
+
+  ${lowStockSection}
+  ${chartSection}
+
+  <div class="footer">BENE MediCon Inventory System &bull; ${month} &bull; Printed ${generated}</div>
+</body>
+</html>`;
+
+          const w = window.open('', '_blank', 'width=900,height=700');
+          w.document.write(html);
           w.document.close();
-          header.style.display = 'none';
+          // Wait for fonts to load before printing
+          w.onload = () => setTimeout(() => { w.print(); }, 600);
         }
       </script>
     </div>
@@ -2033,10 +2278,123 @@ ORDER BY month
           <?php endforeach; ?>
         </select>
 
-        <a href="export_expired_history.php?format=excel" class="btn btn-add">
-          <i class="fas fa-file-excel"></i> Export
+        <a href="export_expired_history.php?format=excel" class="btn btn-add" onclick="exportExpiredHistory(event)">
+          <i class="fas fa-file-excel"></i> Export CSV
         </a>
+        <button onclick="printExpiredHistory()" class="btn" style="background:#0288d1;height:38px;padding:0 14px;font-size:0.82rem;">
+          <i class="fas fa-print"></i> Print
+        </button>
       </div>
+
+      <script>
+      // ── Expired Supply History — Export to CSV ───────────────────────────────
+      function exportExpiredHistory(e) {
+        e.preventDefault();
+        const rows  = document.querySelectorAll('#expired-history-table tbody tr');
+        const lines = [['Name','Category','Batch Date','Expiry Date','Qty at Expiry','Date Recorded']];
+        rows.forEach(tr => {
+          const tds = tr.querySelectorAll('td');
+          if (tds.length < 7) return; // skip empty-state row
+          lines.push([
+            tds[1].textContent.trim(),
+            tds[2].textContent.trim(),
+            tds[3].textContent.trim(),
+            tds[4].textContent.trim(),
+            tds[5].textContent.trim(),
+            tds[6].textContent.trim(),
+          ]);
+        });
+        const csv = lines.map(r => r.map(v => '"' + v.replace(/"/g,'""') + '"').join(',')).join('\r\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = 'expired_supply_history_' + new Date().toISOString().slice(0,10) + '.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      // ── Expired Supply History — Print ───────────────────────────────────────
+      function printExpiredHistory() {
+        const search = (document.getElementById('exp-history-search')?.value || '').toLowerCase().trim();
+        const cat    = document.getElementById('exp-history-category')?.value || '';
+        const allRows = [...document.querySelectorAll('#expired-history-table tbody tr')];
+        const generated = new Date().toLocaleString('en-PH', {
+          year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit'
+        });
+        const filterNote = [
+          search ? `Name: "${search}"` : '',
+          cat    ? `Category: "${cat}"` : '',
+        ].filter(Boolean).join(' | ') || 'All records';
+
+        const bodyRows = allRows
+          .filter(tr => {
+            if (tr.querySelectorAll('td').length < 7) return false;
+            const nameMatch = !search || (tr.dataset.name || '').includes(search);
+            const catMatch  = !cat    || (tr.dataset.category || '') === cat;
+            return nameMatch && catMatch;
+          })
+          .map(tr => {
+            const tds = tr.querySelectorAll('td');
+            return `<tr>
+              <td style="font-weight:600;">${tds[1].textContent.trim()}</td>
+              <td>${tds[2].textContent.trim()}</td>
+              <td>${tds[3].textContent.trim()}</td>
+              <td style="color:#c62828;font-weight:600;">${tds[4].textContent.trim()}</td>
+              <td style="text-align:center;font-weight:700;">${tds[5].textContent.trim()}</td>
+              <td style="color:#6b7280;">${tds[6].textContent.trim()}</td>
+            </tr>`;
+          }).join('');
+
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Expired Supply History</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=EB+Garamond:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'DM Sans',sans-serif; color:#111; padding:28px 36px; font-size:12px; }
+    .header { text-align:center; border-bottom:2px solid #9b1c1c; padding-bottom:12px; margin-bottom:16px; }
+    .header h1 { font-family:'EB Garamond',serif; font-size:20px; color:#5c0a0a; margin-bottom:3px; }
+    .header p  { color:#6b7280; font-size:11px; }
+    .filter-badge { display:inline-block; background:#fef2f2; color:#9b1c1c; border-radius:5px; padding:2px 8px; font-size:11px; font-weight:600; margin-top:5px; }
+    table { width:100%; border-collapse:collapse; margin-top:4px; }
+    th, td { border:1px solid #e5e7eb; padding:5px 8px; }
+    th { background:#fef2f2; color:#9b1c1c; font-weight:600; font-size:11px; text-align:left; }
+    tr:nth-child(even) td { background:#fdf9f9; }
+    .footer { margin-top:20px; text-align:right; font-size:10px; color:#9ca3af; border-top:1px solid #e5e7eb; padding-top:8px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>BENE MediCon — Expired Supply History</h1>
+    <p>Generated: ${generated}</p>
+    <span class="filter-badge">Filter: ${filterNote}</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Medicine Name</th><th>Category</th><th>Batch Date</th>
+        <th>Expiry Date</th><th style="text-align:center;">Qty at Expiry</th><th>Date Recorded</th>
+      </tr>
+    </thead>
+    <tbody>${bodyRows || '<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:16px;">No records found.</td></tr>'}</tbody>
+  </table>
+  <div class="footer">BENE MediCon Inventory System &bull; Printed ${generated}</div>
+</body>
+</html>`;
+
+        const w = window.open('', '_blank', 'width=1000,height=700');
+        w.document.write(html);
+        w.document.close();
+        w.onload = () => setTimeout(() => { w.print(); }, 500);
+      }
+      </script>
+
+      <!-- Table -->
 
       <!-- Table -->
       <div class="table-wrap">
