@@ -379,18 +379,40 @@ if (isset($_GET['delete'])) {
     exit();
   }
 
-  $id = $_GET['delete'];
+  $id          = (int) $_GET['delete'];
+  $deleted_by  = $_SESSION['username'] ?? 'Unknown';
   $current_time = date('Y-m-d H:i:s');
   $conn->query("UPDATE medicines SET last_updated = '$current_time' WHERE 1");
-  $result = $conn->query("SELECT image FROM medicines WHERE id = $id");
+
+  // Fetch name + image before deleting
+  $result = $conn->query("SELECT name, image FROM medicines WHERE id = $id");
+  $medName = 'Unknown';
   if ($result->num_rows > 0) {
     $row = $result->fetch_assoc();
+    $medName = $row['name'];
     $image_path = '../../uploads/medicines/' . $row['image'];
     if (file_exists($image_path))
       unlink($image_path);
   }
+
   $conn->query("DELETE FROM medicines WHERE id = $id");
-  $_SESSION['toast'] = ['message' => 'Medicine deleted successfully!', 'type' => 'success'];
+
+  // Notify all admins
+  $notifyMsg = "{$deleted_by} deleted medicine \"{$medName}\" from the inventory.";
+  $notify = $conn->prepare("INSERT INTO notifications (user_id, message, is_read, created_at)
+                              SELECT id, ?, 0, NOW() FROM users WHERE role = 'admin'");
+  $notify->bind_param('s', $notifyMsg);
+  $notify->execute();
+  $notify->close();
+
+  // Write to logs table
+  $logMsg = "Staff {$deleted_by} deleted medicine \"{$medName}\" from the inventory.";
+  $logStmt = $conn->prepare("INSERT INTO logs (user, action) VALUES ('admin', ?)");
+  $logStmt->bind_param('s', $logMsg);
+  $logStmt->execute();
+  $logStmt->close();
+
+  $_SESSION['toast'] = ['message' => "✅ \"{$medName}\" deleted successfully.", 'type' => 'success'];
   header('Location: dashboard.php?section=inventory');
   exit();
 }
