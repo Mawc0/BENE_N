@@ -257,7 +257,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_medicine'])) {
   if (!empty($_FILES['image']['name'])) {
     if ($_FILES['image']['error'] !== UPLOAD_ERR_OK) {
       $_SESSION['toast'] = ['message' => 'Upload failed with error code ' . $_FILES['image']['error'], 'type' => 'error'];
-    header('Location: dashboard.php?section=inventory');
+      header('Location: dashboard.php?section=inventory');
       exit();
     }
     $target_dir = '../../uploads/medicines/';
@@ -279,8 +279,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_medicine'])) {
   header('Location: dashboard.php?section=inventory');
   exit();
 }
+
 // Helper: determine unit label based on medicine category
-function getMedicineUnit(string $type): string {
+function getMedicineUnit(string $type): string
+{
   $liquidTypes = ['Injection', 'Antiseptic', 'Syrup', 'Solution', 'Drops', 'Suspension'];
   return in_array($type, $liquidTypes, true) ? 'mL' : 'pcs';
 }
@@ -537,8 +539,9 @@ if ($userId) {
           <div class="dropdown-header">
             <img src="uploads/avatars/<?= htmlspecialchars($_SESSION['profile_pic'] ?? 'default.jpg') ?>" alt=""
               onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-            <div class="dh-initials" style="display:none;"><?= strtoupper(substr($_SESSION['username'] ?? 'S', 0, 1)) ?>
-            </div>
+            <img src="../../uploads/avatars/<?= htmlspecialchars($_SESSION['profile_pic'] ?? 'default.jpg') ?>" alt=""
+              style="width:36px;height:36px;border-radius:8px;object-fit:cover;"
+              onerror="this.style.display='none'">
             <div>
               <div class="dh-name"><?= htmlspecialchars($_SESSION['username'] ?? 'Staff') ?></div>
               <div class="dh-role"><?= $isGuest ? 'Guest' : 'Staff Member' ?> &mdash; BENE MediCon</div>
@@ -883,11 +886,12 @@ ORDER BY month
                 <td><?= $status ?></td>
                 <?php if (!$isGuest): ?>
                   <td>
-                    <?php if (!$isExpired):
-                        $unit = getMedicineUnit($row['type']);
-                        $isLiquid = ($unit === 'mL');
-                        $unitIcon = $isLiquid ? '💧' : '💊';
-                        $inputWidth = $isLiquid ? '64px' : '52px';
+                    <?php
+                    if (!$isExpired):
+                      $unit = getMedicineUnit($row['type']);
+                      $isLiquid = ($unit === 'mL');
+                      $unitIcon = $isLiquid ? '💧' : '💊';
+                      $inputWidth = $isLiquid ? '64px' : '52px';
                       ?>
                       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
                         <!-- Unit badge -->
@@ -927,7 +931,11 @@ ORDER BY month
                         </button>
                       </div>
                     <?php else: ?>
-                      <span style="color:#9a8a85;font-style:italic;font-size:0.8rem;">Expired</span>
+                      <button
+                        onclick="openDeleteModal(<?= (int) $row['id'] ?>, '<?= addslashes(htmlspecialchars($row['name'])) ?>')"
+                        class="btn btn-del" style="height:30px;padding:0 8px;font-size:0.75rem;">
+                        <i class="fas fa-trash"></i>
+                      </button>
                     <?php endif; ?>
                   </td>
                 <?php endif; ?>

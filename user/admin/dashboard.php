@@ -650,6 +650,9 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
 
         <div class="profile-dropdown" id="profileDropdown">
           <div class="dropdown-header">
+                <img src="../../uploads/avatars/<?= htmlspecialchars($_SESSION['profile_pic'] ?? 'default.jpg') ?>" alt=""
+        style="width:36px;height:36px;border-radius:8px;object-fit:cover;"
+        onerror="this.style.display='none'">
             <div class="dh-name"><?= htmlspecialchars($_SESSION['username'] ?? 'Admin') ?></div>
             <div class="dh-role"><?= ucfirst($_SESSION['role'] ?? 'Admin') ?> &mdash; BENE MediCon</div>
           </div>
