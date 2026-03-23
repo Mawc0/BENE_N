@@ -16,31 +16,36 @@ $success_message = '';
 $recentLogs = null;
 $notifications = null;
 
-// Unread count
+// Get the logged-in admin's user ID
+$adminIdRes = $conn->query("SELECT id FROM users WHERE username = '" . $conn->real_escape_string($_SESSION['username']) . "' LIMIT 1");
+$adminUserId = $adminIdRes ? (int) $adminIdRes->fetch_assoc()['id'] : 0;
+
+// Unread count — only for this admin
 $unreadCount = 0;
-$unreadRes = $conn->query('SELECT COUNT(*) AS c FROM notifications WHERE is_read = 0');
+$unreadRes = $conn->query("SELECT COUNT(*) AS c FROM notifications WHERE user_id = $adminUserId AND is_read = 0");
 if ($unreadRes) {
   $row = $unreadRes->fetch_assoc();
   $unreadCount = isset($row['c']) ? (int) $row['c'] : 0;
 }
 
-// Mark all read
+// Mark all read — only for this admin
 if ($page === 'notifications' && isset($_POST['mark_all_read'])) {
-  $conn->query('UPDATE notifications SET is_read = 1 WHERE is_read = 0');
+  $conn->query("UPDATE notifications SET is_read = 1 WHERE user_id = $adminUserId AND is_read = 0");
   $unreadCount = 0;
   header('Location: dashboard.php?page=notifications');
   exit();
 }
 
-// Fetch notifications
+// Fetch notifications — only for this admin
 if ($page === 'notifications') {
-  $notifications = $conn->query('
+  $notifications = $conn->query("
         SELECT n.*, u.username
         FROM notifications n
         LEFT JOIN users u ON n.user_id = u.id
+        WHERE n.user_id = $adminUserId
         ORDER BY n.is_read ASC, n.created_at DESC
         LIMIT 50
-    ');
+    ");
 }
 
 // Add/update/delete users
@@ -177,6 +182,11 @@ if ($page === 'categories') {
 }
 
 // Medicines
+function getMedicineUnit(string $type): string {
+  $liquidTypes = ['Injection', 'Antiseptic', 'Syrup', 'Solution', 'Drops', 'Suspension'];
+  return in_array($type, $liquidTypes, true) ? 'mL' : 'pcs';
+}
+
 $where = '1=1';
 $search = '';
 if ($page === 'medicines') {
@@ -188,7 +198,14 @@ if ($page === 'medicines') {
     $search = $conn->real_escape_string($_GET['search']);
     $where .= " AND (name LIKE '%$search%' OR type LIKE '%$search%' OR CAST(quantity AS CHAR) LIKE '%$search%' OR DATE_FORMAT(expired_date, '%Y-%m-%d') LIKE '%$search%')";
   }
-  $meds = $conn->query("SELECT * FROM medicines WHERE $where ORDER BY expired_date ASC");
+  $meds = $conn->query("SELECT *,
+    CASE WHEN expired_date < CURDATE() THEN 3
+         WHEN quantity <= 20 THEN 1
+         ELSE 2 END AS sort_order
+    FROM medicines WHERE $where ORDER BY sort_order ASC, expired_date ASC");
+  $medCatResult = $conn->query('SELECT name FROM categories ORDER BY id');
+  $medCategories = [];
+  while ($c = $medCatResult->fetch_assoc()) $medCategories[] = $c['name'];
 }
 
 // Dashboard stats
@@ -1007,60 +1024,152 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
 
     <?php elseif ($page === 'medicines'): ?>
       <h1 class="page-heading">Medicine Overview</h1>
-      <div class="filters">
-        <a href="?page=medicines" <?= !isset($_GET['filter']) ? 'class="active"' : '' ?>>All</a>
-        <a href="?page=medicines&filter=low_stock" <?= (isset($_GET['filter']) && $_GET['filter'] === 'low_stock') ? 'class="active"' : '' ?>>Low Stock</a>
-        <a href="?page=medicines&filter=expiring" <?= (isset($_GET['filter']) && $_GET['filter'] === 'expiring') ? 'class="active"' : '' ?>>Expiring Soon</a>
+
+      <!-- Toolbar: Search + Category Pills -->
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:1rem;flex-wrap:wrap;">
+        <input type="text" id="inv-search" placeholder="&#128269; Search by name..."
+          style="flex:1;min-width:180px;height:38px;padding:0 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;"
+          oninput="adminFilterMeds()">
       </div>
-      <form method="GET" class="inline-search">
-        <input type="hidden" name="page" value="medicines">
-        <input type="text" name="search" placeholder="&#128269; Search medicine..."
-          value="<?= htmlspecialchars($search ?? '') ?>">
-        <button type="submit" class="btn"><i class="fas fa-search"></i> Search</button>
-      </form>
+
+      <!-- Category Pills -->
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1.2rem;" id="admin-med-pills">
+        <button class="inv-pill active" onclick="adminSetCat('all',this)">All</button>
+        <button class="inv-pill" onclick="adminSetCat('low_stock',this)" style="border-color:#f59e0b;color:#92400e;">&#9888; Low Stock</button>
+        <button class="inv-pill" onclick="adminSetCat('expiring',this)" style="border-color:#ef4444;color:#7f1d1d;">&#128308; Expiring Soon</button>
+        <?php foreach ($medCategories as $cat): ?>
+          <button class="inv-pill" onclick="adminSetCat('cat:<?= addslashes(htmlspecialchars($cat)) ?>',this)"><?= htmlspecialchars($cat) ?></button>
+        <?php endforeach; ?>
+      </div>
+
       <div class="table-wrap">
-        <table id="medicines-table">
-          <tr>
-            <th>ID</th>
-            <th>Medicine</th>
-            <th>Category</th>
-            <th>Qty</th>
-            <th>Expiry</th>
-            <th>Status</th>
-          </tr>
+        <table id="admin-medicines-table">
+          <thead>
+            <tr>
+              <th>Image</th>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Batch Date</th>
+              <th>Expiry Date</th>
+              <th style="text-align:center;">Qty</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
           <?php
           if (!empty($meds) && $meds->num_rows > 0):
             while ($row = $meds->fetch_assoc()):
-              $class = 'badge-good';
-              $status = 'Good';
-              if ($row['quantity'] <= 20 && $row['expired_date'] > date('Y-m-d')) {
-                $status = 'Low Stock';
-                $class = 'badge-low';
-              }
-              if ($row['expired_date'] <= date('Y-m-d')) {
-                $status = 'Expired';
-                $class = 'badge-expired';
-              } elseif ($row['expired_date'] <= date('Y-m-d', strtotime('+7 days'))) {
-                $status = 'Expiring Soon';
-                $class = 'badge-low';
-              }
+              $expDate = new DateTime($row['expired_date']);
+              $todayDt = new DateTime();
+              $isExpired = $expDate < $todayDt;
+              $isLow = !$isExpired && $row['quantity'] <= 20;
+              $isExpiringSoon = !$isExpired && $expDate <= new DateTime('+7 days');
+              $statusHtml = $isExpired
+                ? '<span class="badge-expired">&#128308; Expired</span>'
+                : ($isLow
+                  ? '<span class="badge-low">&#9888; Low Stock</span>'
+                  : ($isExpiringSoon
+                    ? '<span class="badge-low">&#9888; Expiring Soon</span>'
+                    : '<span class="badge-good">&#10003; In Stock</span>'));
+              $rowClass = $isExpired ? 'expiring-soon' : ($isLow ? 'warning' : '');
+              $statusKey = $isExpired ? 'expired' : ($isLow ? 'low_stock' : ($isExpiringSoon ? 'expiring' : 'good'));
+              $unit = getMedicineUnit($row['type']);
               ?>
-              <tr>
-                <td><?= (int) $row['id'] ?></td>
+              <tr class="<?= $rowClass ?>"
+                data-name="<?= strtolower(htmlspecialchars($row['name'])) ?>"
+                data-category="<?= htmlspecialchars($row['type']) ?>"
+                data-status="<?= $statusKey ?>">
+                <td><img src="../../uploads/medicines/<?= htmlspecialchars($row['image']) ?>" width="40" height="40"
+                    style="border-radius:6px;object-fit:cover;" alt=""></td>
                 <td><?= htmlspecialchars($row['name']) ?></td>
-                <td><?= htmlspecialchars($row['type']) ?></td>
-                <td><?= (int) $row['quantity'] ?></td>
+                <td><span style="background:#fef2f2;color:var(--red-dark);padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;"><?= htmlspecialchars($row['type']) ?></span></td>
+                <td><?= htmlspecialchars($row['batch_date']) ?></td>
                 <td><?= htmlspecialchars($row['expired_date']) ?></td>
-                <td><span class="<?= $class ?>"><?= $status ?></span></td>
+                <td style="text-align:center;font-weight:600;"><?= (int) $row['quantity'] ?> <span style="font-size:0.7rem;font-weight:400;color:#6b7280;"><?= $unit ?></span></td>
+                <td><?= $statusHtml ?></td>
               </tr>
             <?php endwhile;
           else: ?>
-            <tr>
-              <td colspan="6" style="text-align:center;color:var(--text-muted);">No results.</td>
-            </tr>
+            <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:1.5rem 0;">No medicines found.</td></tr>
           <?php endif; ?>
+          </tbody>
         </table>
+        <div class="inv-pagination" id="admin-inv-pagination" style="display:none;">
+          <span id="admin-inv-page-info"></span>
+          <div class="inv-pages" id="admin-inv-pages"></div>
+        </div>
       </div>
+      <p id="admin-inv-no-results" style="display:none;color:var(--text-muted);text-align:center;padding:1.5rem 0;font-size:0.88rem;">No medicines found matching your search.</p>
+
+      <script>
+        let adminActiveCat = 'all';
+        let adminCurrentPage = 1;
+        const ADMIN_PAGE_SIZE = 6;
+
+        function adminSetCat(cat, btn) {
+          adminActiveCat = cat;
+          adminCurrentPage = 1;
+          document.querySelectorAll('#admin-med-pills .inv-pill').forEach(p => p.classList.remove('active'));
+          if (btn) btn.classList.add('active');
+          adminFilterMeds();
+        }
+
+        function adminFilterMeds() {
+          const search = (document.getElementById('inv-search')?.value || '').toLowerCase();
+          const rows = [...document.querySelectorAll('#admin-medicines-table tbody tr')];
+
+          const matched = rows.filter(r => {
+            const nameMatch = !search || (r.dataset.name || '').includes(search);
+            let catMatch = true;
+            if (adminActiveCat === 'low_stock') catMatch = r.dataset.status === 'low_stock';
+            else if (adminActiveCat === 'expiring') catMatch = r.dataset.status === 'expiring';
+            else if (adminActiveCat.startsWith('cat:')) catMatch = r.dataset.category === adminActiveCat.slice(4);
+            return nameMatch && catMatch;
+          });
+
+          rows.forEach(r => r.style.display = 'none');
+
+          const total = matched.length;
+          const totalPages = Math.ceil(total / ADMIN_PAGE_SIZE) || 1;
+          adminCurrentPage = Math.min(adminCurrentPage, totalPages);
+          const start = (adminCurrentPage - 1) * ADMIN_PAGE_SIZE;
+          const end = Math.min(start + ADMIN_PAGE_SIZE, total);
+          matched.slice(start, end).forEach(r => r.style.display = '');
+
+          const noResults = document.getElementById('admin-inv-no-results');
+          if (noResults) noResults.style.display = matched.length === 0 ? 'block' : 'none';
+
+          const pag = document.getElementById('admin-inv-pagination');
+          const info = document.getElementById('admin-inv-page-info');
+          const pages = document.getElementById('admin-inv-pages');
+          pag.style.display = total > ADMIN_PAGE_SIZE ? 'flex' : 'none';
+          if (info) info.textContent = total === 0 ? 'No results' : `Showing ${start+1}–${end} of ${total}`;
+          if (pages) {
+            pages.innerHTML = '';
+            const prev = document.createElement('button');
+            prev.className = 'inv-page-btn'; prev.innerHTML = '&#8249;';
+            prev.disabled = adminCurrentPage === 1;
+            prev.onclick = () => { adminCurrentPage--; adminFilterMeds(); };
+            pages.appendChild(prev);
+            for (let i = 1; i <= totalPages; i++) {
+              if (i === 1 || i === totalPages || Math.abs(i - adminCurrentPage) <= 2) {
+                const btn = document.createElement('button');
+                btn.className = 'inv-page-btn' + (i === adminCurrentPage ? ' active' : '');
+                btn.textContent = i;
+                btn.onclick = () => { adminCurrentPage = i; adminFilterMeds(); };
+                pages.appendChild(btn);
+              }
+            }
+            const next = document.createElement('button');
+            next.className = 'inv-page-btn'; next.innerHTML = '&#8250;';
+            next.disabled = adminCurrentPage === totalPages;
+            next.onclick = () => { adminCurrentPage++; adminFilterMeds(); };
+            pages.appendChild(next);
+          }
+        }
+
+        document.addEventListener('DOMContentLoaded', adminFilterMeds);
+      </script>
 
     <?php elseif ($page === 'logs'): ?>
       <h1 class="page-heading">Activity Logs</h1>

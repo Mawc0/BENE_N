@@ -937,3 +937,90 @@ button[type="submit"]:hover {
   color: var(--text);
   line-height: 1.6;
 }
+
+/* ══════════════════════════════
+    INVENTORY PILLS & PAGINATION
+    (Medicine Overview section)
+══════════════════════════════ */
+.inv-pill {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+.inv-pill:hover {
+  background: #fdf4f4;
+  border-color: #f0d8d8;
+  color: var(--red);
+}
+.inv-pill.active {
+  background: var(--red-dark);
+  border-color: var(--red-dark);
+  color: #fff;
+}
+
+.inv-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.inv-pages {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.inv-page-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 7px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-family: "DM Sans", sans-serif;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.inv-page-btn:hover:not(:disabled) {
+  background: #fdf4f4;
+  border-color: #f0d8d8;
+  color: var(--red);
+}
+.inv-page-btn.active {
+  background: var(--red-dark);
+  border-color: var(--red-dark);
+  color: #fff;
+}
+.inv-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Inventory row status highlights ── */
+tr.expiring-soon td {
+  background: #fff5f5;
+}
+tr.expiring-soon:hover td {
+  background: #fee2e2;
+}
+tr.warning td {
+  background: #fffbeb;
+}
+tr.warning:hover td {
+  background: #fef3c7;
+}
