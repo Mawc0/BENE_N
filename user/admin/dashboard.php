@@ -448,6 +448,20 @@ checkSchedules();
 
 $isGuest = ($_SESSION['role'] ?? '') === 'guest';
 
+$search      = $_GET['search']      ?? '';
+$role_filter = $_GET['role_filter'] ?? '';
+
+$where = "WHERE username LIKE '%" . $conn->real_escape_string($search) . "%'";
+
+if (!empty($role_filter)) {
+    $where .= " AND role = '" . $conn->real_escape_string($role_filter) . "'";
+}
+
+$order = "ORDER BY FIELD(role, 'guest', 'staff', 'admin')";
+
+$sql = "SELECT * FROM users $where $order";
+$users = $conn->query($sql);
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -693,7 +707,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
   <div class="main-content" id="mainContent">
 
     <?php if ($page === 'notifications'): ?>
-      <h1 class="page-heading">Notifications</h1>
+      <h1 class="page-heading"> <i class="fas fa-bell" style="color:var(--red-light);margin-right:8px;"></i>Notifications</h1>
       <form method="POST" style="margin-bottom:1rem;">
         <button type="submit" name="mark_all_read" class="btn btn-add">
           <i class="fas fa-check-double"></i> Mark All as Read
@@ -727,7 +741,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
       </div>
 
     <?php elseif ($page === 'dashboard'): ?>
-      <h1 class="page-heading">Admin Dashboard</h1>
+      <h1 class="page-heading"> <i class="fas fa-tachometer-alt" style="color:var(--red-light);margin-right:8px;"></i>Admin Dashboard</h1>
       <div class="cards">
         <div class="stat-card stat-card-1">
           <div class="stat-icon"><i class="fas fa-users"></i></div>
@@ -775,7 +789,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
       </div>
 
     <?php elseif ($page === 'donations'): ?>
-      <h1 class="page-heading">Donation Requests</h1>
+      <h1 class="page-heading"> <i class="fas fa-hand-holding-medical" style="color:var(--red-light);margin-right:8px;"></i>Donation Requests</h1>
       <?php if (!empty($success_message)): ?>
         <div class="alert alert-success"><?= htmlspecialchars($success_message) ?></div><?php endif; ?>
       <?php $donations = $conn->query('SELECT dr.id, dr.status, dr.requested_at, dr.approved_at, m.name AS med_name, m.type AS med_type, u.username AS staff_name FROM donation_requests dr JOIN medicines m ON dr.medicine_id = m.id JOIN users u ON dr.staff_id = u.id ORDER BY dr.requested_at DESC'); ?>
@@ -820,7 +834,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
       </div>
 
     <?php elseif ($page === 'manage_users'): ?>
-      <h1 class="page-heading">Manage Users</h1>
+      <h1 class="page-heading"> <i class="fas fa-users" style="color:var(--red-light);margin-right:8px;"></i>Manage Users</h1>
       <?php if (isset($_GET['msg'])): ?>
         <div class="alert alert-info"><?= htmlspecialchars($_GET['msg']) ?></div><?php endif; ?>
       <?php if (!empty($error_message)): ?>
@@ -828,17 +842,49 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
       <?php if (!empty($success_message)): ?>
         <div class="alert alert-success"><?= htmlspecialchars($success_message) ?></div><?php endif; ?>
 
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:1rem;">
-        <form method="GET" class="inline-search" style="margin-bottom:0;flex:1;min-width:200px;">
-          <input type="hidden" name="page" value="manage_users">
-          <input type="text" name="search" placeholder="&#128269; Search users..."
-            value="<?= htmlspecialchars($search ?? '') ?>">
-          <button type="submit" class="btn"><i class="fas fa-search"></i> Search</button>
-        </form>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:0.75rem;">
+        <input
+          type="text"
+          id="userSearchInput"
+          placeholder="&#128269; Search users..."
+          value="<?= htmlspecialchars($search ?? '') ?>"
+          style="flex:1;min-width:200px;padding:0.45rem 0.75rem;border:1px solid var(--border-color,#d1d5db);border-radius:6px;font-family:inherit;font-size:0.9rem;"
+        >
         <button class="btn btn-add" onclick="openAddUserModal()" style="white-space:nowrap;">
           <i class="fas fa-user-plus"></i> Add User
         </button>
       </div>
+
+      <!-- Role filter pills -->
+      <div id="userRolePills" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;">
+        <button class="user-pill active" data-role="all" onclick="setUserPill(this,'all')">All</button>
+        <button class="user-pill" data-role="guest" onclick="setUserPill(this,'guest')">&#128100; Guest</button>
+        <button class="user-pill" data-role="staff" onclick="setUserPill(this,'staff')">&#128203; Staff</button>
+        <button class="user-pill" data-role="admin" onclick="setUserPill(this,'admin')">&#128737; Admin</button>
+      </div>
+
+      <style>
+        .user-pill {
+          padding: 0.3rem 1rem;
+          border-radius: 999px;
+          border: 1px solid var(--border-color, #d1d5db);
+          background: transparent;
+          color: var(--text-muted, #6b7280);
+          font-size: 0.82rem;
+          font-family: inherit;
+          cursor: pointer;
+          transition: background 0.15s, color 0.15s, border-color 0.15s;
+        }
+        .user-pill:hover {
+          border-color: var(--red-light, #c0392b);
+          color: var(--red-light, #c0392b);
+        }
+        .user-pill.active {
+          background: var(--red-light, #c0392b);
+          color: #fff;
+          border-color: var(--red-light, #c0392b);
+        }
+      </style>
 
       <?php if (!empty($editUser)): ?>
       <div class="form-card">
@@ -860,7 +906,6 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
         <table id="usersTable">
           <thead>
           <tr>
-            <th>ID</th>
             <th>Username</th>
             <th>Role</th>
             <th>Created</th>
@@ -873,7 +918,6 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
           <?php if (!empty($users) && $users->num_rows > 0): ?>
             <?php while ($row = $users->fetch_assoc()): ?>
               <tr>
-                <td><?= (int) $row['id'] ?></td>
                 <td><?= htmlspecialchars($row['username']) ?></td>
                 <td><?= ucfirst($row['role']) ?></td>
                 <td><?= htmlspecialchars($row['created_at']) ?></td>
@@ -896,7 +940,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
             <?php endwhile; ?>
           <?php else: ?>
             <tr>
-              <td colspan="7" style="text-align:center;color:var(--text-muted);">No users found.</td>
+              <td colspan="6" style="text-align:center;color:var(--text-muted);">No users found.</td>
             </tr>
           <?php endif; ?>
           </tbody>
@@ -910,26 +954,64 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
       <script>
       (function() {
         const ROWS_PER_PAGE = 7;
-        const tbody = document.getElementById('usersTableBody');
-        const info  = document.getElementById('paginationInfo');
+        const tbody    = document.getElementById('usersTableBody');
+        const info     = document.getElementById('paginationInfo');
         const controls = document.getElementById('paginationControls');
+        const searchInput = document.getElementById('userSearchInput');
         if (!tbody) return;
 
-        const rows = Array.from(tbody.querySelectorAll('tr'));
-        let currentPage = 1;
+        const allRows = Array.from(tbody.querySelectorAll('tr'));
+        let currentPage  = 1;
+        let activeRole   = 'all';
+        let searchTerm   = (searchInput ? searchInput.value : '').toLowerCase();
 
-        function totalPages() {
-          return Math.max(1, Math.ceil(rows.length / ROWS_PER_PAGE));
+        // Attach live search listener
+        if (searchInput) {
+          searchInput.addEventListener('input', function() {
+            searchTerm  = this.value.toLowerCase();
+            currentPage = 1;
+            render();
+          });
+        }
+
+        window.setUserPill = function(btn, role) {
+          document.querySelectorAll('#userRolePills .user-pill').forEach(p => p.classList.remove('active'));
+          btn.classList.add('active');
+          activeRole  = role;
+          currentPage = 1;
+          render();
+        };
+
+        function getVisible() {
+          return allRows.filter(r => {
+            const username = (r.cells[0] ? r.cells[0].textContent : '').toLowerCase();
+            const role     = (r.cells[1] ? r.cells[1].textContent : '').toLowerCase().trim();
+            const matchSearch = !searchTerm || username.includes(searchTerm);
+            const matchRole   = activeRole === 'all' || role === activeRole;
+            return matchSearch && matchRole;
+          });
+        }
+
+        function totalPages(visible) {
+          return Math.max(1, Math.ceil(visible.length / ROWS_PER_PAGE));
         }
 
         function render() {
-          const tp = totalPages();
+          const visible = getVisible();
+          const tp    = totalPages(visible);
+          currentPage = Math.min(currentPage, tp);
           const start = (currentPage - 1) * ROWS_PER_PAGE;
           const end   = start + ROWS_PER_PAGE;
-          rows.forEach((r, i) => r.style.display = (i >= start && i < end) ? '' : 'none');
-          info.textContent = rows.length === 0
-            ? ''
-            : `Showing ${start + 1}–${Math.min(end, rows.length)} of ${rows.length} users`;
+
+          // Hide all rows first
+          allRows.forEach(r => r.style.display = 'none');
+          // Show only the current page slice of matched rows
+          visible.slice(start, end).forEach(r => r.style.display = '');
+
+          info.textContent = visible.length === 0
+            ? 'No users found'
+            : `Showing ${start + 1}–${Math.min(end, visible.length)} of ${visible.length} users`;
+
           buildControls(tp);
         }
 
@@ -957,7 +1039,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
           next.innerHTML = '&#8594;';
           next.style.cssText = btnStyle(false);
           next.disabled = currentPage === tp;
-          next.onclick = () => { if (currentPage < totalPages()) { currentPage++; render(); } };
+          next.onclick = () => { if (currentPage < tp) { currentPage++; render(); } };
           controls.appendChild(next);
         }
 
@@ -966,7 +1048,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
       </script>
 
     <?php elseif ($page === 'categories'): ?>
-      <h1 class="page-heading">Medicine Categories</h1>
+      <h1 class="page-heading"><i class="fas fa-tags" style="color:var(--red-light);margin-right:8px;"></i>Medicine Categories</h1>
       <?php if (!empty($error_message)): ?>
         <div class="alert alert-error"><?= htmlspecialchars($error_message) ?></div><?php endif; ?>
       <?php if (!empty($success_message)): ?>
@@ -1023,7 +1105,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
       </div>
 
     <?php elseif ($page === 'medicines'): ?>
-      <h1 class="page-heading">Medicine Overview</h1>
+      <h1 class="page-heading"><i class="fas fa-pills" style="color:var(--red-light);margin-right:8px;"></i>Medicine Overview</h1>
 
       <!-- Toolbar: Search + Category Pills -->
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:1rem;flex-wrap:wrap;">
@@ -1172,7 +1254,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
       </script>
 
     <?php elseif ($page === 'logs'): ?>
-      <h1 class="page-heading">Activity Logs</h1>
+      <h1 class="page-heading"><i class="fas fa-history" style="color:var(--red-light);margin-right:8px;"></i>Activity Logs</h1>
       <div class="table-wrap">
         <table>
           <tr>
@@ -1194,7 +1276,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
       </div>
 
     <?php elseif ($page === 'schedules'): ?>
-      <h1 class="page-heading">Check Schedules</h1>
+      <h1 class="page-heading"><i class="fas fa-clock" style="color:var(--red-light);margin-right:8px;"></i>Check Schedules</h1>
       <div class="form-card" style="max-width:520px;">
         <h3>Create New Schedule</h3>
         <form method="POST">
