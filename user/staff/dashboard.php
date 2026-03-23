@@ -222,7 +222,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_medicine'])) {
     header('Location: dashboard.php?section=inventory');
     exit();
   }
-  $image = time() . '_' . basename($_FILES['image']['name']);
+  $image = basename($_FILES['image']['name']);
   $target_file = $target_dir . $image;
   $quantity = isset($_POST['quantity']) ? (int) $_POST['quantity'] : 100;
   if (move_uploaded_file($_FILES['image']['tmp_name'], $target_file)) {
@@ -261,7 +261,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_medicine'])) {
       exit();
     }
     $target_dir = '../../uploads/medicines/';
-    $image = time() . '_' . basename($_FILES['image']['name']);
+    $image = basename($_FILES['image']['name']);
     $target_file = $target_dir . $image;
     if (move_uploaded_file($_FILES['image']['tmp_name'], $target_file)) {
       $image_query = ", image='$image'";

@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $targetDir = '../uploads/avatars/';
             if (!is_dir($targetDir))
                 mkdir($targetDir, 0777, true);
-            $newFileName = time() . '_' . basename($_FILES['profile_pic']['name']);
+            $newFileName = basename($_FILES['profile_pic']['name']);
             if (move_uploaded_file($_FILES['profile_pic']['tmp_name'], $targetDir . $newFileName)) {
                 $profilePic = $newFileName;
                 $_SESSION['profile_pic'] = $profilePic;
