@@ -327,6 +327,76 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_medicine'])) {
   header('Location: dashboard.php?section=inventory');
   exit();
 }
+// Bulk Import from Excel
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['bulk_import'])) {
+  if ($isGuest) {
+    $_SESSION['toast'] = ['message' => '⚠️ Guests cannot import medicines.', 'type' => 'error'];
+    header('Location: dashboard.php?section=inventory');
+    exit();
+  }
+
+  $rows      = json_decode($_POST['import_rows'] ?? '[]', true);
+  $added_by  = $conn->real_escape_string($_SESSION['username'] ?? 'Unknown');
+  $inserted  = 0;
+  $skipped   = 0;
+  $errors    = [];
+
+  if (!is_array($rows) || empty($rows)) {
+    $_SESSION['toast'] = ['message' => '⚠️ No data received for import.', 'type' => 'warning'];
+    header('Location: dashboard.php?section=inventory');
+    exit();
+  }
+
+  $stmt = $conn->prepare("INSERT INTO medicines (image, name, type, batch_date, expired_date, quantity, last_updated) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+
+  foreach ($rows as $i => $r) {
+    $name         = trim($r['name']         ?? '');
+    $type         = trim($r['type']         ?? '');
+    $batch_date   = trim($r['batch_date']   ?? '');
+    $expired_date = trim($r['expired_date'] ?? '');
+    $quantity     = max(0, (int)($r['quantity'] ?? 0));
+    $image        = 'default.jpg';
+
+    if (empty($name) || empty($type) || empty($batch_date) || empty($expired_date)) {
+      $skipped++;
+      continue;
+    }
+
+    // Normalise Excel serial dates if needed (SheetJS usually formats them already)
+    $batch_date   = date('Y-m-d', strtotime($batch_date))   ?: $batch_date;
+    $expired_date = date('Y-m-d', strtotime($expired_date)) ?: $expired_date;
+
+    $stmt->bind_param('sssssi', $image, $name, $type, $batch_date, $expired_date, $quantity);
+    if ($stmt->execute()) {
+      $inserted++;
+    } else {
+      $skipped++;
+    }
+  }
+  $stmt->close();
+
+  // Log & notify
+  if ($inserted > 0) {
+    $logMsg = "Staff {$added_by} bulk-imported {$inserted} medicine(s) via Excel.";
+    $logStmt = $conn->prepare("INSERT INTO logs (user, action) VALUES ('admin', ?)");
+    $logStmt->bind_param('s', $logMsg);
+    $logStmt->execute();
+    $logStmt->close();
+
+    $notifyMsg = "{$added_by} imported {$inserted} medicine(s) via Excel spreadsheet.";
+    $notify = $conn->prepare("INSERT INTO notifications (user_id, message, is_read, created_at) SELECT id, ?, 0, NOW() FROM users WHERE role = 'admin'");
+    $notify->bind_param('s', $notifyMsg);
+    $notify->execute();
+    $notify->close();
+  }
+
+  $msg = "✅ Imported {$inserted} medicine(s) successfully.";
+  if ($skipped > 0) $msg .= " ⚠️ {$skipped} row(s) skipped (missing required fields).";
+  $_SESSION['toast'] = ['message' => $msg, 'type' => $inserted > 0 ? 'success' : 'warning'];
+  header('Location: dashboard.php?section=inventory');
+  exit();
+}
+
 // Update Medicine
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_medicine'])) {
   if ($isGuest) {
@@ -719,6 +789,7 @@ if ($usageLogsRes) {
     rel="stylesheet">
   <link rel="stylesheet" href="../../styles/s_dashboard.css">
   <link rel="stylesheet" href="../../styles/s_dashboard_extra.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 
 <body>
@@ -1114,6 +1185,9 @@ ORDER BY month
           <button onclick="openAddMedicineModal()" class="btn btn-add">
             <i class="fas fa-plus"></i> Add Medicine
           </button>
+          <button onclick="openImportExcelModal()" class="btn btn-add" style="background:var(--red-dark);">
+            <i class="fas fa-file-excel"></i> Import Excel
+          </button>
         <?php endif; ?>
       </div>
 
@@ -1288,6 +1362,82 @@ ORDER BY month
                 <i class="fas fa-pills"></i> Add Medicine
               </button>
             </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Import Excel Modal -->
+      <div id="importExcelModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:780px;width:95%;">
+          <div class="modal-header">
+            <h3><i class="fas fa-file-excel" style="margin-right:8px;color:#16a34a;"></i>Import Medicines from Excel</h3>
+            <span class="modal-close" onclick="closeImportExcelModal()">&times;</span>
+          </div>
+          <div class="modal-body" style="padding-top:1rem;">
+
+            <!-- Instructions -->
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px;margin-bottom:1rem;font-size:0.82rem;color:#166534;line-height:1.6;">
+              <strong><i class="fas fa-info-circle"></i> Required columns (header names must match exactly):</strong><br>
+              <code style="background:#dcfce7;padding:1px 5px;border-radius:4px;">name</code> &nbsp;
+              <code style="background:#dcfce7;padding:1px 5px;border-radius:4px;">type</code> &nbsp;
+              <code style="background:#dcfce7;padding:1px 5px;border-radius:4px;">batch_date</code> &nbsp;
+              <code style="background:#dcfce7;padding:1px 5px;border-radius:4px;">expired_date</code> &nbsp;
+              <code style="background:#dcfce7;padding:1px 5px;border-radius:4px;">quantity</code>
+              <br><span style="color:#6b7280;font-size:0.78rem;">Dates should be in <em>YYYY-MM-DD</em> format. Rows missing required fields will be skipped. Images will use the default placeholder.</span>
+              <br><a id="import-template-link" href="#" onclick="downloadImportTemplate(event)"
+                style="color:#16a34a;font-weight:600;text-decoration:underline;font-size:0.78rem;">
+                <i class="fas fa-download"></i> Download template
+              </a>
+            </div>
+
+            <!-- File Picker -->
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;">
+              <label style="display:flex;align-items:center;gap:8px;background:#f9fafb;border:1.5px dashed var(--border);border-radius:8px;padding:10px 16px;cursor:pointer;flex:1;font-size:0.85rem;color:var(--text-muted);">
+                <i class="fas fa-upload" style="color:var(--red-light);"></i>
+                <span id="import-file-label">Click to choose an .xlsx or .xls file…</span>
+                <input type="file" id="import-excel-file" accept=".xlsx,.xls" style="display:none;" onchange="handleExcelFile(this)">
+              </label>
+              <button onclick="document.getElementById('import-excel-file').click()" class="btn btn-grey" style="height:42px;padding:0 14px;white-space:nowrap;">
+                <i class="fas fa-folder-open"></i> Browse
+              </button>
+            </div>
+
+            <!-- Preview Table -->
+            <div id="import-preview-wrap" style="display:none;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <span id="import-row-count" style="font-size:0.82rem;color:var(--text-muted);"></span>
+                <button onclick="clearImportFile()" class="btn btn-grey" style="height:30px;padding:0 10px;font-size:0.76rem;">
+                  <i class="fas fa-times"></i> Clear
+                </button>
+              </div>
+              <div style="overflow-x:auto;max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
+                <table id="import-preview-table" style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+                  <thead>
+                    <tr style="background:var(--red-dark);color:#fff;position:sticky;top:0;z-index:1;">
+                      <th style="padding:8px 10px;text-align:left;">#</th>
+                      <th style="padding:8px 10px;text-align:left;">Name</th>
+                      <th style="padding:8px 10px;text-align:left;">Type</th>
+                      <th style="padding:8px 10px;text-align:left;">Batch Date</th>
+                      <th style="padding:8px 10px;text-align:left;">Expired Date</th>
+                      <th style="padding:8px 10px;text-align:left;">Qty</th>
+                      <th style="padding:8px 10px;text-align:left;">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="import-preview-body"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Error summary -->
+            <div id="import-error-box" style="display:none;margin-top:10px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:0.8rem;color:#b91c1c;"></div>
+
+            <!-- Actions -->
+            <div style="display:flex;gap:8px;justify-content:flex-end;padding-top:1rem;border-top:1px solid var(--border);margin-top:1rem;">
+              <button onclick="closeImportExcelModal()" class="btn btn-grey">Cancel</button>
+              <button id="import-confirm-btn" onclick="submitImport()" class="btn btn-add" disabled style="opacity:0.5;cursor:not-allowed;">
+                <i class="fas fa-database"></i> Import to Database
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -3023,6 +3173,8 @@ ORDER BY month
           applyExpiredHistoryFilter();
         });
       })();
+
+      // ── Import Excel Modal ────────────────────────────────────────────────────
     </script>
 
 
@@ -3094,6 +3246,193 @@ ORDER BY month
       document.getElementById('useMedicineModal').addEventListener('click', function(e) {
         if (e.target === this) closeUseModal();
       });
+    </script>
+
+    <script>
+      // ── Import Excel Modal ──────────────────────────────────────────────────
+      let importRows = [];
+
+      const REQUIRED_COLS = ['name', 'type', 'batch_date', 'expired_date', 'quantity'];
+
+      function openImportExcelModal() {
+        clearImportFile();
+        document.getElementById('importExcelModal').style.display = 'flex';
+      }
+
+      function closeImportExcelModal() {
+        document.getElementById('importExcelModal').style.display = 'none';
+        clearImportFile();
+      }
+
+      document.getElementById('importExcelModal').addEventListener('click', function(e) {
+        if (e.target === this) closeImportExcelModal();
+      });
+
+      function clearImportFile() {
+        importRows = [];
+        const fileInput = document.getElementById('import-excel-file');
+        if (fileInput) fileInput.value = '';
+        document.getElementById('import-file-label').textContent = 'Click to choose an .xlsx or .xls file…';
+        document.getElementById('import-preview-wrap').style.display = 'none';
+        document.getElementById('import-preview-body').innerHTML = '';
+        document.getElementById('import-error-box').style.display = 'none';
+        document.getElementById('import-error-box').innerHTML = '';
+        const btn = document.getElementById('import-confirm-btn');
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor  = 'not-allowed';
+      }
+
+      function formatExcelDate(val) {
+        if (!val) return '';
+        // If SheetJS already converted to a JS Date string
+        if (typeof val === 'string' && val.match(/^\d{4}-\d{2}-\d{2}/)) return val.slice(0, 10);
+        // Excel serial number
+        if (typeof val === 'number') {
+          const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+          return date.toISOString().slice(0, 10);
+        }
+        // Try generic parse
+        const d = new Date(val);
+        if (!isNaN(d)) return d.toISOString().slice(0, 10);
+        return String(val);
+      }
+
+      function handleExcelFile(input) {
+        const file = input.files[0];
+        if (!file) return;
+        document.getElementById('import-file-label').textContent = file.name;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const data     = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array', cellDates: false });
+            const sheet    = workbook.Sheets[workbook.SheetNames[0]];
+            const raw      = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+            if (!raw.length) {
+              showImportError('The spreadsheet appears to be empty.');
+              return;
+            }
+
+            // Normalise header keys to lowercase + trim
+            const rows = raw.map(r => {
+              const out = {};
+              for (const k in r) out[k.toLowerCase().trim().replace(/\s+/g, '_')] = r[k];
+              return out;
+            });
+
+            // Check required columns exist
+            const firstRow  = rows[0];
+            const missing   = REQUIRED_COLS.filter(c => !(c in firstRow));
+            if (missing.length) {
+              showImportError(`Missing required column(s): <strong>${missing.join(', ')}</strong>. Check that your header row matches exactly.`);
+              return;
+            }
+
+            document.getElementById('import-error-box').style.display = 'none';
+
+            importRows = [];
+            let skipped = 0;
+            const tbodyRows = rows.map((r, i) => {
+              const name         = String(r['name']         || '').trim();
+              const type         = String(r['type']         || '').trim();
+              const batch_date   = formatExcelDate(r['batch_date']);
+              const expired_date = formatExcelDate(r['expired_date']);
+              const quantity     = parseInt(r['quantity'])  || 0;
+
+              const isValid = name && type && batch_date && expired_date;
+              if (!isValid) { skipped++; }
+              else { importRows.push({ name, type, batch_date, expired_date, quantity }); }
+
+              const statusBadge = isValid
+                ? '<span style="background:#dcfce7;color:#166534;border-radius:5px;padding:1px 8px;font-weight:600;font-size:0.75rem;">✓ OK</span>'
+                : '<span style="background:#fee2e2;color:#b91c1c;border-radius:5px;padding:1px 8px;font-weight:600;font-size:0.75rem;">✗ Skip</span>';
+
+              return `<tr style="border-bottom:1px solid var(--border);${!isValid ? 'opacity:0.5;' : ''}">
+                <td style="padding:6px 10px;color:var(--text-muted);">${i + 1}</td>
+                <td style="padding:6px 10px;font-weight:600;">${escHtml(name || '—')}</td>
+                <td style="padding:6px 10px;">${escHtml(type || '—')}</td>
+                <td style="padding:6px 10px;">${escHtml(batch_date || '—')}</td>
+                <td style="padding:6px 10px;">${escHtml(expired_date || '—')}</td>
+                <td style="padding:6px 10px;">${quantity}</td>
+                <td style="padding:6px 10px;">${statusBadge}</td>
+              </tr>`;
+            });
+
+            document.getElementById('import-preview-body').innerHTML = tbodyRows.join('');
+            document.getElementById('import-row-count').textContent =
+              `${importRows.length} row(s) ready to import${skipped ? ` · ${skipped} will be skipped (missing fields)` : ''}`;
+            document.getElementById('import-preview-wrap').style.display = 'block';
+
+            const btn = document.getElementById('import-confirm-btn');
+            if (importRows.length > 0) {
+              btn.disabled = false;
+              btn.style.opacity = '1';
+              btn.style.cursor  = 'pointer';
+            } else {
+              showImportError('No valid rows found to import. Please check your spreadsheet.');
+            }
+          } catch (err) {
+            showImportError('Failed to read the file. Make sure it is a valid .xlsx or .xls file.<br><small>' + err.message + '</small>');
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }
+
+      function showImportError(msg) {
+        const box = document.getElementById('import-error-box');
+        box.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' + msg;
+        box.style.display = 'block';
+        document.getElementById('import-preview-wrap').style.display = 'none';
+        const btn = document.getElementById('import-confirm-btn');
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor  = 'not-allowed';
+      }
+
+      function escHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      function submitImport() {
+        if (!importRows.length) return;
+        const btn = document.getElementById('import-confirm-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing…';
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = 'dashboard.php';
+
+        const hidden = document.createElement('input');
+        hidden.type  = 'hidden';
+        hidden.name  = 'bulk_import';
+        hidden.value = '1';
+        form.appendChild(hidden);
+
+        const dataField = document.createElement('input');
+        dataField.type  = 'hidden';
+        dataField.name  = 'import_rows';
+        dataField.value = JSON.stringify(importRows);
+        form.appendChild(dataField);
+
+        document.body.appendChild(form);
+        form.submit();
+      }
+
+      function downloadImportTemplate(e) {
+        e.preventDefault();
+        const ws   = XLSX.utils.aoa_to_sheet([
+          ['name', 'type', 'batch_date', 'expired_date', 'quantity'],
+          ['Amoxicillin 500mg', 'Antibiotic', '2025-01-10', '2027-01-10', 200],
+          ['Paracetamol 500mg', 'Pain Reliever', '2025-03-01', '2027-03-01', 150],
+        ]);
+        const wb   = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Medicines');
+        XLSX.writeFile(wb, 'medicine_import_template.xlsx');
+      }
     </script>
 
     <!-- Delete Confirmation Modal -->
