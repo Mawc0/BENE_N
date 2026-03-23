@@ -139,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <span class="section-label"><i class="fas fa-image"></i>Choose an Avatar</span>
                 <div class="avatar-gallery">
                     <?php
-                    $avatars = ['avatar1.jpg', 'avatar2.jpg', 'avatar3.jpg', 'avatar4.jpg'];
+                    $avatars = ['staff1.png', 'staff2.png', 'staff3.png', 'staff4.png'];
                     foreach ($avatars as $avatar):
                         ?>
                         <label class="avatar-option" title="<?= $avatar ?>">
