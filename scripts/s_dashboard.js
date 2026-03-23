@@ -1,3 +1,30 @@
+// ── Unit helpers ──
+const LIQUID_TYPES = ['Injection', 'Antiseptic', 'Syrup', 'Solution', 'Drops', 'Suspension'];
+ 
+function getMedUnit(type) {
+  return LIQUID_TYPES.includes(type) ? 'mL' : 'pcs';
+}
+ 
+function updateAddMedUnit(selectEl) {
+  const unit = getMedUnit(selectEl.value);
+  const badge = document.getElementById('add-med-unit-badge');
+  const qtyInput = document.getElementById('add-med-qty');
+  if (!badge) return;
+  if (unit === 'mL') {
+    badge.style.display = 'inline';
+    badge.innerHTML = '💧 mL';
+    badge.style.background = '#e0f2fe';
+    badge.style.color = '#0369a1';
+    if (qtyInput) qtyInput.placeholder = 'e.g. 500 mL';
+  } else {
+    badge.style.display = 'inline';
+    badge.innerHTML = '💊 pcs';
+    badge.style.background = '#fef2f2';
+    badge.style.color = '#b91c1c';
+    if (qtyInput) qtyInput.placeholder = 'e.g. 100 pcs';
+  }
+}
+
 // ── Video hover popup ──
 const popup = document.getElementById("videoPopup");
 const frame = document.getElementById("popupFrame");

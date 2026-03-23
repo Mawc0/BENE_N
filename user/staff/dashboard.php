@@ -214,7 +214,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_medicine'])) {
   $type = trim($_POST['type']);
   $batch_date = $_POST['batch_date'];
   $expired_date = $_POST['expired_date'];
-  $target_dir = 'uploads/medicines/';
+  $target_dir = '../../uploads/medicines/';
   if (!is_dir($target_dir))
     mkdir($target_dir, 0777, true);
   if ($_FILES['image']['error'] !== UPLOAD_ERR_OK) {
@@ -260,7 +260,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_medicine'])) {
     header('Location: dashboard.php?section=inventory');
       exit();
     }
-    $target_dir = 'uploads/medicines/';
+    $target_dir = '../../uploads/medicines/';
     $image = time() . '_' . basename($_FILES['image']['name']);
     $target_file = $target_dir . $image;
     if (move_uploaded_file($_FILES['image']['tmp_name'], $target_file)) {
@@ -279,6 +279,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_medicine'])) {
   header('Location: dashboard.php?section=inventory');
   exit();
 }
+// Helper: determine unit label based on medicine category
+function getMedicineUnit(string $type): string {
+  $liquidTypes = ['Injection', 'Antiseptic', 'Syrup', 'Solution', 'Drops', 'Suspension'];
+  return in_array($type, $liquidTypes, true) ? 'mL' : 'pcs';
+}
+
 // Adjust Stock (Add or Use)
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['adjust_stock'])) {
   if ($isGuest) {
@@ -290,19 +296,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['adjust_stock'])) {
   $id = (int) $_POST['id'];
   $change = (int) $_POST['change'];
   $action = $_POST['action'];
-  $result = $conn->query("SELECT name, quantity FROM medicines WHERE id = $id");
+  $result = $conn->query("SELECT name, quantity, type FROM medicines WHERE id = $id");
   if ($result->num_rows > 0) {
     $row = $result->fetch_assoc();
     $old_quantity = $row['quantity'];
+    $unit = getMedicineUnit($row['type']);
     if ($action === 'use' && $change > $old_quantity) {
-      $_SESSION['toast'] = ['message' => "❌ Cannot use $change units. Only {$old_quantity} available.", 'type' => 'error'];
-    header('Location: dashboard.php?section=inventory');
+      $_SESSION['toast'] = ['message' => "❌ Cannot use $change {$unit}. Only {$old_quantity} {$unit} available.", 'type' => 'error'];
+      header('Location: dashboard.php?section=inventory');
       exit();
     }
     $new_quantity = ($action === 'use') ? $old_quantity - $change : $old_quantity + $change;
     $verb = ($action === 'use') ? 'used' : 'added';
     $conn->query("UPDATE medicines SET quantity = $new_quantity, last_updated = NOW() WHERE id = $id");
-    $_SESSION['toast'] = ['message' => "✅ $change unit(s) $verb from {$row['name']}. Stock: $old_quantity → $new_quantity", 'type' => 'success'];
+    $_SESSION['toast'] = ['message' => "✅ {$change} {$unit} $verb — {$row['name']}. Stock: {$old_quantity} → {$new_quantity} {$unit}", 'type' => 'success'];
     header('Location: dashboard.php?section=inventory');
     exit();
   }
@@ -321,7 +328,7 @@ if (isset($_GET['delete'])) {
   $result = $conn->query("SELECT image FROM medicines WHERE id = $id");
   if ($result->num_rows > 0) {
     $row = $result->fetch_assoc();
-    $image_path = 'uploads/medicines/' . $row['image'];
+    $image_path = '../../uploads/medicines/' . $row['image'];
     if (file_exists($image_path))
       unlink($image_path);
   }
@@ -872,27 +879,38 @@ ORDER BY month
                 </td>
                 <td><?= htmlspecialchars($row['batch_date']) ?></td>
                 <td><?= htmlspecialchars($row['expired_date']) ?></td>
-                <td style="text-align:center;font-weight:600;"><?= (int) $row['quantity'] ?></td>
+                <td style="text-align:center;font-weight:600;"><?= (int) $row['quantity'] ?><span style="font-size:0.68rem;font-weight:400;color:#6b7280;margin-left:2px;"><?= getMedicineUnit($row['type']) ?></span></td>
                 <td><?= $status ?></td>
                 <?php if (!$isGuest): ?>
                   <td>
-                    <?php if (!$isExpired): ?>
+                    <?php if (!$isExpired):
+                        $unit = getMedicineUnit($row['type']);
+                        $isLiquid = ($unit === 'mL');
+                        $unitIcon = $isLiquid ? '💧' : '💊';
+                        $inputWidth = $isLiquid ? '64px' : '52px';
+                      ?>
                       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-                        <!-- Add stock -->
-                        <form method="POST" style="display:inline-flex;align-items:center;gap:4px;">
+                        <!-- Unit badge -->
+                        <span title="Unit: <?= $unit ?>" style="display:inline-flex;align-items:center;gap:3px;background:<?= $isLiquid ? '#e0f2fe' : '#fef2f2' ?>;color:<?= $isLiquid ? '#0369a1' : 'var(--red-dark)' ?>;padding:2px 7px;border-radius:10px;font-size:0.7rem;font-weight:700;letter-spacing:0.03em;">
+                          <?= $unitIcon ?> <?= $unit ?>
+                        </span>
+                        <!-- Add stock (not used for now) -->
+                        <!-- <form method="POST" style="display:inline-flex;align-items:center;gap:4px;">
                           <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
                           <input type="hidden" name="action" value="add">
-                          <input type="number" name="change" placeholder="Qty" min="1" required
-                            style="width:52px;height:30px;padding:0 6px;border:1.5px solid var(--border);border-radius:6px;font-size:0.78rem;outline:none;">
+                          <input type="number" name="change" placeholder="<?= $unit ?>" min="1" required
+                            style="width:<?= $inputWidth ?>;height:30px;padding:0 6px;border:1.5px solid var(--border);border-radius:6px;font-size:0.78rem;outline:none;"
+                            title="Amount to add in <?= $unit ?>">
                           <button type="submit" name="adjust_stock" class="btn btn-add"
                             style="height:30px;padding:0 8px;font-size:0.75rem;">+ Add</button>
-                        </form>
+                        </form> -->
                         <!-- Use stock -->
                         <form method="POST" style="display:inline-flex;align-items:center;gap:4px;">
                           <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
                           <input type="hidden" name="action" value="use">
-                          <input type="number" name="change" placeholder="Qty" min="1" required
-                            style="width:52px;height:30px;padding:0 6px;border:1.5px solid var(--border);border-radius:6px;font-size:0.78rem;outline:none;">
+                          <input type="number" name="change" placeholder="<?= $unit ?>" min="1" required
+                            style="width:<?= $inputWidth ?>;height:30px;padding:0 6px;border:1.5px solid var(--border);border-radius:6px;font-size:0.78rem;outline:none;"
+                            title="Amount to use in <?= $unit ?>">
                           <button type="submit" name="adjust_stock" class="btn btn-del"
                             style="height:30px;padding:0 8px;font-size:0.75rem;" onclick="return confirm('Use this stock?')">−
                             Use</button>
@@ -943,7 +961,7 @@ ORDER BY month
                 style="width:100%;height:42px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;margin-bottom:12px;outline:none;">
               <label
                 style="display:block;font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">Category</label>
-              <select name="type" required
+              <select name="type" id="add-med-type" required onchange="updateAddMedUnit(this)"
                 style="width:100%;height:42px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;margin-bottom:12px;outline:none;">
                 <option value="" disabled selected>Select Category</option>
                 <?php foreach ($categories as $cat): ?>
@@ -961,8 +979,10 @@ ORDER BY month
               <input type="date" name="expired_date" required
                 style="width:100%;height:42px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;margin-bottom:12px;outline:none;">
               <label
-                style="display:block;font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">Quantity</label>
-              <input type="number" name="quantity" required min="1" value="100"
+                style="display:block;font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">
+                Quantity <span id="add-med-unit-badge" style="display:none;margin-left:6px;background:#e0f2fe;color:#0369a1;padding:1px 7px;border-radius:8px;font-size:0.68rem;font-weight:700;text-transform:none;letter-spacing:0;">💧 mL</span>
+              </label>
+              <input type="number" name="quantity" id="add-med-qty" required min="1" value="100" placeholder="e.g. 100"
                 style="width:100%;height:42px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;margin-bottom:12px;outline:none;">
               <label
                 style="display:block;font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">Image</label>
@@ -1066,7 +1086,7 @@ ORDER BY month
               ?>
               <tr class="<?= $rowClass ?>" data-status="<?= $isExpired ? 'expired' : ($isLow ? 'low' : 'expiring') ?>"
                 data-category="<?= htmlspecialchars($row['type']) ?>">
-                <td><img src="uploads/medicines/<?= htmlspecialchars($row['image']) ?>" width="44" height="44"
+                <td><img src="../../uploads/medicines/<?= htmlspecialchars($row['image']) ?>" width="44" height="44"
                     style="border-radius:6px;object-fit:cover;" alt=""></td>
                 <td><?= htmlspecialchars($row['name']) ?></td>
                 <td><span
@@ -1179,7 +1199,7 @@ ORDER BY month
                   $pendingCheck->close();
                   ?>
                   <tr>
-                    <td><img src="uploads/medicines/<?= htmlspecialchars($med['image']) ?>" width="44" height="44"
+                    <td><img src="../../uploads/medicines/<?= htmlspecialchars($med['image']) ?>" width="44" height="44"
                         style="border-radius:6px;object-fit:cover;" alt=""></td>
                     <td><?= htmlspecialchars($med['name']) ?></td>
                     <td><span
@@ -1242,7 +1262,7 @@ ORDER BY month
                   $isUrgent = ($totalMonths == 0 && $days <= 1);
                   ?>
                   <tr>
-                    <td><img src="uploads/medicines/<?= htmlspecialchars($med['image']) ?>" width="44" height="44"
+                    <td><img src="../../uploads/medicines/<?= htmlspecialchars($med['image']) ?>" width="44" height="44"
                         style="border-radius:6px;object-fit:cover;" alt=""></td>
                     <td><?= htmlspecialchars($med['name']) ?></td>
                     <td><span
@@ -1539,7 +1559,7 @@ ORDER BY month
                 $status = $balance <= 20 ? '⚠️ Low Stock' : '✅ In Stock';
                 ?>
                 <tr>
-                  <td><img src="uploads/medicines/<?php echo htmlspecialchars($med['image']); ?>" width="50"></td>
+                  <td><img src="../../uploads/medicines/<?php echo htmlspecialchars($med['image']); ?>" width="50"></td>
                   <td><?php echo htmlspecialchars($med['name']); ?></td>
                   <td><?php echo htmlspecialchars($med['type']); ?></td>
                   <td><?php echo htmlspecialchars($med['batch_date']); ?></td>
