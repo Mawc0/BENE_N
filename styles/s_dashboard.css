@@ -966,24 +966,29 @@ button:active,
 }
 
 /*==================== MEDICAL CHATBOT (Floating Widget) ====================*/
+/*==================== SBCA MEDICAL CHATBOT ====================*/
 
+/* Chat Head (Floating Button) */
 .chat-head {
   position: fixed;
   bottom: 20px;
   right: 20px;
   width: 60px;
   height: 60px;
-  background: #007bff;
-  color: white;
+  background: linear-gradient(135deg, var(--red-light), var(--red-deeper));
+  color: #fff;
   border-radius: 50%;
   display: flex;
   justify-content: center;
   align-items: center;
   font-size: 24px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 6px 18px rgba(155, 28, 28, 0.4);
   cursor: pointer;
   z-index: 1000;
+  border: 2px solid var(--gold);
 }
+
+/* Chat Container */
 .chat-container {
   display: none;
   position: fixed;
@@ -991,30 +996,38 @@ button:active,
   right: 20px;
   width: 380px;
   height: 500px;
-  background: white;
+  background: var(--surface);
   border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.2);
   z-index: 999;
   flex-direction: column;
   overflow: hidden;
+  border: 1px solid var(--border);
 }
+
+/* Header */
 .chat-header {
-  background: #007bff;
-  color: white;
+  background: linear-gradient(135deg, var(--red-light), var(--red-deeper));
+  color: #fff;
   padding: 14px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-weight: 600;
+  border-bottom: 2px solid var(--gold);
 }
+
+/* Disclaimer */
 .disclaimer {
-  background: #e3f2fd;
-  color: #0d47a1;
-  font-size: 0.8em;
+  background: #fff7ed;
+  color: #7c2d12;
+  font-size: 0.75rem;
   padding: 8px;
   text-align: center;
-  border-bottom: 1px solid #bbdefb;
+  border-bottom: 1px solid #fed7aa;
 }
+
+/* Chat Area */
 #chatbox {
   flex: 1;
   padding: 16px;
@@ -1022,70 +1035,115 @@ button:active,
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: #fcfdff;
+  background: #fffafa;
 }
+
+/* Messages */
 .message {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   max-width: 80%;
 }
+
 .message.user {
   align-self: flex-end;
   flex-direction: row-reverse;
 }
+
 .message-text {
   padding: 10px 14px;
   border-radius: 16px;
   line-height: 1.5;
+  font-size: 0.85rem;
 }
+
+/* USER MESSAGE */
 .message.user .message-text {
-  background: #007bff;
-  color: white;
+  background: var(--red-light);
+  color: #fff;
   border-bottom-left-radius: 5px;
 }
+
+/* BOT MESSAGE */
 .message.bot .message-text {
-  background: #e9ecef;
-  color: #212529;
+  background: #f3f4f6;
+  color: var(--text);
   border-bottom-right-radius: 5px;
+  border: 1px solid var(--border);
 }
+
+/* Avatar */
 .avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
   object-fit: cover;
+  border: 2px solid var(--gold);
 }
+
+/* Input Area */
 #user-input {
   display: flex;
   gap: 8px;
   padding: 12px 16px;
-  background: white;
-  border-top: 1px solid #eee;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
 }
+
+/* Input Field (if you add one) */
+#user-input input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+#user-input input:focus {
+  border-color: var(--red-light);
+}
+
+/* Mic Button */
 #micBtn {
   width: 40px;
   height: 40px;
-  background: #28a745;
-  color: white;
+  background: var(--gold);
+  color: #fff;
   border: none;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
   justify-content: center;
   align-items: center;
+  transition: background 0.2s;
 }
+
+#micBtn:hover {
+  background: var(--gold-light);
+}
+
+/* Send Button */
 #sendBtn {
   width: 40px;
   height: 40px;
-  background: #007bff;
-  color: white;
+  background: var(--red-dark);
+  color: #fff;
   border: none;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
   justify-content: center;
   align-items: center;
+  transition: background 0.2s;
 }
+
+#sendBtn:hover {
+  background: var(--red-light);
+}
+
+
 /* Creative Password Alert */
 .password-alert {
   display: flex;
