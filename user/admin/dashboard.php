@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $check->close();
     $password = password_hash($passwordRaw, PASSWORD_DEFAULT);
-    $defaultPic = 'default.jpg';
+    $defaultPic = $role === 'guest' ? 'guest.avif' : 'staff1.png';
     $forceChange = 1;
     $stmt = $conn->prepare('INSERT INTO users (username, password, role, profile_pic, force_password_change) VALUES (?, ?, ?, ?, ?)');
     $stmt->bind_param('ssssi', $username, $password, $role, $defaultPic, $forceChange);
@@ -182,7 +182,8 @@ if ($page === 'categories') {
 }
 
 // Medicines
-function getMedicineUnit(string $type): string {
+function getMedicineUnit(string $type): string
+{
   $liquidTypes = ['Injection', 'Antiseptic', 'Syrup', 'Solution', 'Drops', 'Suspension'];
   return in_array($type, $liquidTypes, true) ? 'mL' : 'pcs';
 }
@@ -205,7 +206,8 @@ if ($page === 'medicines') {
     FROM medicines WHERE $where ORDER BY sort_order ASC, expired_date ASC");
   $medCatResult = $conn->query('SELECT name FROM categories ORDER BY id');
   $medCategories = [];
-  while ($c = $medCatResult->fetch_assoc()) $medCategories[] = $c['name'];
+  while ($c = $medCatResult->fetch_assoc())
+    $medCategories[] = $c['name'];
 }
 
 // Dashboard stats
@@ -448,13 +450,13 @@ checkSchedules();
 
 $isGuest = ($_SESSION['role'] ?? '') === 'guest';
 
-$search      = $_GET['search']      ?? '';
+$search = $_GET['search'] ?? '';
 $role_filter = $_GET['role_filter'] ?? '';
 
 $where = "WHERE username LIKE '%" . $conn->real_escape_string($search) . "%'";
 
 if (!empty($role_filter)) {
-    $where .= " AND role = '" . $conn->real_escape_string($role_filter) . "'";
+  $where .= " AND role = '" . $conn->real_escape_string($role_filter) . "'";
 }
 
 $order = "ORDER BY FIELD(role, 'guest', 'staff', 'admin')";
