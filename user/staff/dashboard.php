@@ -39,6 +39,12 @@ if ($userId) {
 
 $isGuest = ($_SESSION['role'] ?? '') === 'guest';
 
+// Guests are not required to change their password or set a security question
+if ($isGuest) {
+  $forcePasswordChange = false;
+  $forceSecuritySetup  = false;
+}
+
 // ── LOW STOCK THRESHOLD ──────────────────────────────────────────────────────
 // Default threshold = 20. Staff (non-guest) can update it via POST.
 $thresholdRes = $conn->query("SELECT setting_value FROM system_settings WHERE setting_key = 'low_stock_threshold' LIMIT 1");
