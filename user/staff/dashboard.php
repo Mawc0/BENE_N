@@ -846,7 +846,7 @@ if (!in_array(date('Y-m'), $reportMonths)) {
     <?php endif; ?>
 
     <div id="content-dashboard" class="content active">
-      <h1>Staff Dashboard</h1>
+      <h1><i class="fas fa-tachometer-alt" style="color:var(--red-light);margin-right:8px;"></i>Staff Dashboard</h1>
       <div class="dashboard-cards">
         <div class="stat-card stat-card-1">
           <div class="stat-icon"><i class="fas fa-pills"></i></div>
@@ -1080,7 +1080,7 @@ ORDER BY month
     </div>
 
     <div id="content-inventory" class="content">
-      <h1>Medical Supplies</h1>
+      <h1><i class="fas fa-boxes" style="color:var(--red-light);margin-right:8px;"></i>Medical Supplies</h1>
 
       <!-- Toolbar: Search + Add -->
       <div style="display:flex; gap:10px; align-items:center; margin-bottom:1rem; flex-wrap:wrap;">
@@ -1274,7 +1274,7 @@ ORDER BY month
     </div>
 
     <div id="content-expiration" class="content">
-      <h1>Expiry Tracker</h1>
+      <h1><i class="fas fa-calendar-times" style="color:var(--red-light);margin-right:8px;"></i>Expiry Tracker</h1>
 
       <!-- Toolbar: Filters + Actions -->
       <div
@@ -1524,7 +1524,7 @@ ORDER BY month
 
     <!-- Donation Page -->
     <div id="content-donate" class="content">
-      <h1>Donate or Dispose</h1>
+      <h1><i class="fas fa-hand-holding-medical" style="color:var(--red-light);margin-right:8px;"></i>Donate or Dispose</h1>
 
       <!-- Collapsible Tips -->
       <details style="margin-bottom:1.2rem;">
@@ -1720,7 +1720,7 @@ ORDER BY month
 
     <!-- My Requests -->
     <div id="content-donation-history" class="content">
-      <h1>My Requests</h1>
+      <h1><i class="fas fa-clipboard-list" style="color:var(--red-light);margin-right:8px;"></i>My Requests</h1>
 
       <!-- Sub-tab Pills -->
       <div style="display:flex;gap:8px;margin-bottom:1.2rem;">
@@ -2256,7 +2256,7 @@ ORDER BY month
 
     <!-- Expired Supply History -->
     <div id="content-expired-history" class="content">
-      <h1>Expired Supply History</h1>
+      <h1><i class="fas fa-history" style="color:var(--red-light);margin-right:8px;"></i> Expired Supply History</h1>
       <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:1.2rem;">
         A log of all medicines that have expired and been automatically removed from active inventory.
       </p>
