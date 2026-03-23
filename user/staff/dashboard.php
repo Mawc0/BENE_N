@@ -689,6 +689,20 @@ if (!in_array(date('Y-m'), $reportMonths)) {
   array_unshift($reportMonths, date('Y-m'));
 }
 
+// ── MEDICINE USAGE LOG ───────────────────────────────────────────────────────
+$usageLogsRes = $conn->query("
+  SELECT medicine_name, quantity_used, unit, qty_before, qty_after,
+         used_by, reason, recorded_by, recorded_at
+  FROM medicine_usage_logs
+  ORDER BY recorded_at DESC
+");
+$usageLogs = [];
+if ($usageLogsRes) {
+  while ($row = $usageLogsRes->fetch_assoc()) {
+    $usageLogs[] = $row;
+  }
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -768,6 +782,7 @@ if (!in_array(date('Y-m'), $reportMonths)) {
         <button class="nav-item" id="btn-monthly-report"><i class="fas fa-chart-bar"></i><span>Monthly Report</span></button>
 
         <div class="nav-section-label">Records</div>
+        <button class="nav-item" id="btn-usage-log"><i class="fas fa-clipboard-list"></i><span>Medicine Usage Log</span></button>
         <button class="nav-item" id="btn-expired-history"><i class="fas fa-history"></i><span>Expired Supply
             History</span></button>
       <?php endif; ?>
@@ -2260,6 +2275,79 @@ ORDER BY month
     </div>
     <?php endif; ?>
 
+    <!-- Medicine Usage Log -->
+    <div id="content-usage-log" class="content">
+      <h1><i class="fas fa-clipboard-list" style="color:var(--red-light);margin-right:8px;"></i> Medicine Usage Log</h1>
+      <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:1.2rem;">
+        A record of all medicine usage transactions recorded via the <em>Use Medicine</em> action in inventory.
+      </p>
+
+      <!-- Toolbar -->
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:1rem;">
+        <input type="text" id="ul-search" placeholder="&#128269; Search by medicine or used by..."
+          style="flex:1;min-width:200px;height:38px;padding:0 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.84rem;outline:none;">
+        <input type="month" id="ul-month-filter"
+          style="height:38px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.84rem;outline:none;">
+        <button onclick="resetUsageLogFilters()" class="btn btn-grey" style="height:38px;padding:0 14px;">
+          <i class="fas fa-times"></i> Clear
+        </button>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table id="usage-log-table" style="width:100%;border-collapse:collapse;font-size:0.84rem;">
+          <thead>
+            <tr style="background:var(--red-dark);color:#fff;text-align:left;">
+              <th style="padding:10px 12px;">#</th>
+              <th style="padding:10px 12px;">Medicine</th>
+              <th style="padding:10px 12px;">Qty Used</th>
+              <th style="padding:10px 12px;">Stock Before → After</th>
+              <th style="padding:10px 12px;">Used By</th>
+              <th style="padding:10px 12px;">Reason</th>
+              <th style="padding:10px 12px;">Recorded By</th>
+              <th style="padding:10px 12px;">Date &amp; Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php if (empty($usageLogs)): ?>
+              <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:2rem;">No usage records yet.</td></tr>
+            <?php else: ?>
+              <?php foreach ($usageLogs as $ul): ?>
+                <tr class="ul-row"
+                    data-name="<?= strtolower(htmlspecialchars($ul['medicine_name'])) ?>"
+                    data-usedby="<?= strtolower(htmlspecialchars($ul['used_by'])) ?>"
+                    data-month="<?= substr($ul['recorded_at'], 0, 7) ?>"
+                    style="border-bottom:1px solid var(--border);">
+                  <td style="padding:9px 12px;color:var(--text-muted);" class="ul-row-num"></td>
+                  <td style="padding:9px 12px;font-weight:600;color:var(--red-dark);"><?= htmlspecialchars($ul['medicine_name']) ?></td>
+                  <td style="padding:9px 12px;">
+                    <span style="background:#fee2e2;color:#b91c1c;border-radius:6px;padding:2px 9px;font-weight:600;">
+                      <?= (int)$ul['quantity_used'] ?> <?= htmlspecialchars($ul['unit']) ?>
+                    </span>
+                  </td>
+                  <td style="padding:9px 12px;color:var(--text-muted);">
+                    <?= (int)$ul['qty_before'] ?> → <?= (int)$ul['qty_after'] ?> <?= htmlspecialchars($ul['unit']) ?>
+                  </td>
+                  <td style="padding:9px 12px;"><?= htmlspecialchars($ul['used_by']) ?></td>
+                  <td style="padding:9px 12px;color:var(--text-muted);max-width:220px;word-break:break-word;"><?= htmlspecialchars($ul['reason']) ?></td>
+                  <td style="padding:9px 12px;"><?= htmlspecialchars($ul['recorded_by']) ?></td>
+                  <td style="padding:9px 12px;white-space:nowrap;color:var(--text-muted);">
+                    <?= date('M j, Y g:i A', strtotime($ul['recorded_at'])) ?>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            <?php endif; ?>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="inv-pagination" id="ul-pagination" style="display:none;margin-top:1rem;">
+        <span id="ul-page-info"></span>
+        <div class="inv-pages" id="ul-pages"></div>
+      </div>
+      <p id="ul-no-results" style="display:none;color:var(--text-muted);text-align:center;margin-top:1rem;">No records match your search.</p>
+    </div>
+
     <!-- Expired Supply History -->
     <div id="content-expired-history" class="content">
       <h1><i class="fas fa-history" style="color:var(--red-light);margin-right:8px;"></i> Expired Supply History</h1>
@@ -2729,6 +2817,112 @@ ORDER BY month
 
       // Records section wiring
       (function () {
+        // ── Usage Log ────────────────────────────────────────────────────────
+        const btnUsageLog     = document.getElementById('btn-usage-log');
+        const contentUsageLog = document.getElementById('content-usage-log');
+
+        if (btnUsageLog && contentUsageLog) {
+          buttons.usageLog     = btnUsageLog;
+          contents.usageLog    = contentUsageLog;
+          sectionTitles.usageLog = 'Medicine Usage Log';
+          btnUsageLog.addEventListener('click', () => showSection('usageLog'));
+        }
+
+        const UL_PAGE_SIZE = 15;
+        let ulCurrentPage  = 1;
+
+        function applyUsageLogFilter() {
+          const search = (document.getElementById('ul-search')?.value || '').toLowerCase().trim();
+          const month  = (document.getElementById('ul-month-filter')?.value || '');
+          const allRows = [...document.querySelectorAll('#usage-log-table tbody tr.ul-row')];
+
+          const matched = allRows.filter(row => {
+            const nameMatch   = !search || (row.dataset.name   || '').includes(search)
+                                        || (row.dataset.usedby || '').includes(search);
+            const monthMatch  = !month  || (row.dataset.month  || '') === month;
+            return nameMatch && monthMatch;
+          });
+
+          allRows.forEach(r => r.style.display = 'none');
+          const totalPages = Math.ceil(matched.length / UL_PAGE_SIZE) || 1;
+          ulCurrentPage = Math.min(ulCurrentPage, totalPages);
+          const start = (ulCurrentPage - 1) * UL_PAGE_SIZE;
+          const end   = Math.min(start + UL_PAGE_SIZE, matched.length);
+
+          matched.slice(start, end).forEach((r, i) => {
+            r.style.display = '';
+            const numCell = r.querySelector('.ul-row-num');
+            if (numCell) numCell.textContent = start + i + 1;
+          });
+
+          renderULPagination(matched.length, totalPages, start + 1, end);
+
+          const noResults = document.getElementById('ul-no-results');
+          if (noResults) noResults.style.display = matched.length === 0 ? 'block' : 'none';
+        }
+
+        function renderULPagination(total, totalPages, start, end) {
+          const pag   = document.getElementById('ul-pagination');
+          const info  = document.getElementById('ul-page-info');
+          const pages = document.getElementById('ul-pages');
+          if (!pag) return;
+          pag.style.display = total > UL_PAGE_SIZE ? 'flex' : 'none';
+          info.textContent  = total === 0 ? 'No results' : `Showing ${start}–${end} of ${total}`;
+
+          pages.innerHTML = '';
+          const prev = document.createElement('button');
+          prev.className = 'inv-page-btn';
+          prev.innerHTML = '&#8249;';
+          prev.disabled  = ulCurrentPage === 1;
+          prev.onclick   = () => { ulCurrentPage--; applyUsageLogFilter(); };
+          pages.appendChild(prev);
+
+          const range = 2;
+          for (let i = 1; i <= totalPages; i++) {
+            if (i === 1 || i === totalPages || (i >= ulCurrentPage - range && i <= ulCurrentPage + range)) {
+              const btn = document.createElement('button');
+              btn.className = 'inv-page-btn' + (i === ulCurrentPage ? ' active' : '');
+              btn.textContent = i;
+              btn.onclick = () => { ulCurrentPage = i; applyUsageLogFilter(); };
+              pages.appendChild(btn);
+            } else if (
+              (i === ulCurrentPage - range - 1 && i > 1) ||
+              (i === ulCurrentPage + range + 1 && i < totalPages)
+            ) {
+              const dots = document.createElement('button');
+              dots.className = 'inv-page-btn';
+              dots.textContent = '…';
+              dots.disabled = true;
+              pages.appendChild(dots);
+            }
+          }
+
+          const next = document.createElement('button');
+          next.className = 'inv-page-btn';
+          next.innerHTML = '&#8250;';
+          next.disabled  = ulCurrentPage === totalPages;
+          next.onclick   = () => { ulCurrentPage++; applyUsageLogFilter(); };
+          pages.appendChild(next);
+        }
+
+        window.resetUsageLogFilters = function () {
+          const s = document.getElementById('ul-search');
+          const m = document.getElementById('ul-month-filter');
+          if (s) s.value = '';
+          if (m) m.value = '';
+          ulCurrentPage = 1;
+          applyUsageLogFilter();
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+          ['ul-search', 'ul-month-filter'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('input', () => { ulCurrentPage = 1; applyUsageLogFilter(); });
+          });
+          applyUsageLogFilter();
+        });
+
+        // ── Expired History ───────────────────────────────────────────────────
         const btnExpiredHistory = document.getElementById('btn-expired-history');
         const contentExpiredHistory = document.getElementById('content-expired-history');
 
