@@ -479,7 +479,7 @@ if ($userId) {
           class="fas fa-tachometer-alt"></i><span>Dashboard</span></button>
 
       <div class="nav-section-label">Inventory</div>
-      <button class="nav-item" id="btn-inventory"><i class="fas fa-boxes"></i><span>Inventory</span></button>
+      <button class="nav-item" id="btn-inventory"><i class="fas fa-boxes"></i><span>Medical Supplies</span></button>
       <button class="nav-item" id="btn-expiration"><i class="fas fa-calendar-times"></i><span>Expiration</span></button>
 
       <?php if (!$isGuest): ?>
@@ -808,7 +808,7 @@ ORDER BY month
     </div>
 
     <div id="content-inventory" class="content">
-      <h1>Inventory</h1>
+      <h1>Medical Supplies</h1>
 
       <!-- Toolbar: Search + Add -->
       <div style="display:flex; gap:10px; align-items:center; margin-bottom:1rem; flex-wrap:wrap;">
