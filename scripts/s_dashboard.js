@@ -217,14 +217,20 @@ document.addEventListener("DOMContentLoaded", () => {
   if (searchInput) searchInput.addEventListener("input", applyInventoryFilter);
   applyInventoryFilter();
   applyExpiryFilter();
-});
 
-Object.keys(buttons).forEach((key) => {
+  Object.keys(buttons).forEach((key) => {
   if (buttons[key])
     buttons[key].addEventListener("click", () => showSection(key));
+  });
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const section = urlParams.get('section');
+  if (section && contents[section]) {
+      showSection(section);
+  }
 });
 
-function openHistoryCategory(category) {
+function openEditModal(id) {
   if (isGuest) {
     showToast("Guests cannot edit medicines.", "error");
     return;
@@ -239,7 +245,7 @@ function openHistoryCategory(category) {
       document.getElementById("edit_batch_date").value = data.batch_date;
       document.getElementById("edit_expired_date").value = data.expired_date;
       document.getElementById("edit_quantity").value = data.quantity;
-      document.getElementById("editModal").style.display = "block";
+      document.getElementById("editModal").style.display = "flex";
     });
 }
 
@@ -248,7 +254,7 @@ function closeEditModal() {
 }
 
 function openAddMedicineModal() {
-  document.getElementById("addMedicineModal").style.display = "block";
+  document.getElementById("addMedicineModal").style.display = "flex";
 }
 
 function closeAddMedicineModal() {
@@ -262,7 +268,7 @@ function openDeleteModal(id, name) {
   }
   document.getElementById("deleteMedicineName").textContent = name;
   document.getElementById("confirmDelete").href =
-    "staff_dashboard.php?delete=" + id;
+    "dashboard.php?delete=" + id;
   document.getElementById("deleteModal").style.display = "block";
 }
 

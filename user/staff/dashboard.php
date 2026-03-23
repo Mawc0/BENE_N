@@ -43,7 +43,7 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
 if (isset($_GET['donate']) && $userId) {
   if ($isGuest) {
     $_SESSION['toast'] = ['message' => '⚠️ Guests cannot submit donation requests.', 'type' => 'error'];
-    header('Location: staff_dashboard.php?page=donate');
+    header('Location: dashboard.php?page=donate');
     exit();
   }
 
@@ -91,7 +91,7 @@ if (isset($_GET['donate']) && $userId) {
   } else {
     $_SESSION['toast'] = ['message' => '⚠️ Only medicines expiring in 10–12 months are eligible for donation.', 'type' => 'warning'];
   }
-  header('Location: staff_dashboard.php?page=donate');
+  header('Location: dashboard.php?page=donate');
   exit();
 }
 
@@ -99,7 +99,7 @@ if (isset($_GET['donate']) && $userId) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_disposal']) && $userId) {
   if ($isGuest) {
     $_SESSION['toast'] = ['message' => '⚠️ Guests cannot dispose of items.', 'type' => 'error'];
-    header('Location: staff_dashboard.php?page=donate');
+    header('Location: dashboard.php?page=donate');
     exit();
   }
 
@@ -108,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_disposal']) &
 
   if (empty($disposalMethod)) {
     $_SESSION['toast'] = ['message' => '⚠️ Please specify how you will dispose of the item.', 'type' => 'warning'];
-    header('Location: staff_dashboard.php?page=donate');
+    header('Location: dashboard.php?page=donate');
     exit();
   }
 
@@ -128,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_disposal']) &
 
   if (!$med) {
     $_SESSION['toast'] = ['message' => '⚠️ This item is not eligible for disposal.', 'type' => 'warning'];
-    header('Location: staff_dashboard.php?page=donate');
+    header('Location: dashboard.php?page=donate');
     exit();
   }
 
@@ -170,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_disposal']) &
   }
 
   $conn->autocommit(TRUE);
-  header('Location: staff_dashboard.php?page=donate');
+  header('Location: dashboard.php?page=donate');
   exit();
 }
 
@@ -206,7 +206,7 @@ if (isset($_SESSION['toast'])) {
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_medicine'])) {
   if ($isGuest) {
     $_SESSION['toast'] = ['message' => '⚠️ Guests cannot add medicines.', 'type' => 'error'];
-    header('Location: staff_dashboard.php');
+    header('Location: dashboard.php?section=inventory');
     exit();
   }
 
@@ -219,7 +219,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_medicine'])) {
     mkdir($target_dir, 0777, true);
   if ($_FILES['image']['error'] !== UPLOAD_ERR_OK) {
     $_SESSION['toast'] = ['message' => 'Upload failed with error code ' . $_FILES['image']['error'], 'type' => 'error'];
-    header('Location: staff_dashboard.php');
+    header('Location: dashboard.php?section=inventory');
     exit();
   }
   $image = time() . '_' . basename($_FILES['image']['name']);
@@ -236,14 +236,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_medicine'])) {
   } else {
     $_SESSION['toast'] = ['message' => 'Failed to upload image.', 'type' => 'error'];
   }
-  header('Location: staff_dashboard.php');
+  header('Location: dashboard.php?section=inventory');
   exit();
 }
 // Update Medicine
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_medicine'])) {
   if ($isGuest) {
     $_SESSION['toast'] = ['message' => '⚠️ Guests cannot edit medicines.', 'type' => 'error'];
-    header('Location: staff_dashboard.php');
+    header('Location: dashboard.php?section=inventory');
     exit();
   }
 
@@ -257,7 +257,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_medicine'])) {
   if (!empty($_FILES['image']['name'])) {
     if ($_FILES['image']['error'] !== UPLOAD_ERR_OK) {
       $_SESSION['toast'] = ['message' => 'Upload failed with error code ' . $_FILES['image']['error'], 'type' => 'error'];
-      header('Location: staff_dashboard.php');
+    header('Location: dashboard.php?section=inventory');
       exit();
     }
     $target_dir = 'uploads/medicines/';
@@ -276,14 +276,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_medicine'])) {
   } else {
     $_SESSION['toast'] = ['message' => 'Failed to update: ' . $conn->error, 'type' => 'error'];
   }
-  header('Location: staff_dashboard.php');
+  header('Location: dashboard.php?section=inventory');
   exit();
 }
 // Adjust Stock (Add or Use)
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['adjust_stock'])) {
   if ($isGuest) {
     $_SESSION['toast'] = ['message' => '⚠️ Guests cannot adjust stock.', 'type' => 'error'];
-    header('Location: staff_dashboard.php');
+    header('Location: dashboard.php?section=inventory');
     exit();
   }
 
@@ -296,14 +296,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['adjust_stock'])) {
     $old_quantity = $row['quantity'];
     if ($action === 'use' && $change > $old_quantity) {
       $_SESSION['toast'] = ['message' => "❌ Cannot use $change units. Only {$old_quantity} available.", 'type' => 'error'];
-      header('Location: staff_dashboard.php');
+    header('Location: dashboard.php?section=inventory');
       exit();
     }
     $new_quantity = ($action === 'use') ? $old_quantity - $change : $old_quantity + $change;
     $verb = ($action === 'use') ? 'used' : 'added';
     $conn->query("UPDATE medicines SET quantity = $new_quantity, last_updated = NOW() WHERE id = $id");
     $_SESSION['toast'] = ['message' => "✅ $change unit(s) $verb from {$row['name']}. Stock: $old_quantity → $new_quantity", 'type' => 'success'];
-    header('Location: staff_dashboard.php');
+    header('Location: dashboard.php?section=inventory');
     exit();
   }
 }
@@ -311,7 +311,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['adjust_stock'])) {
 if (isset($_GET['delete'])) {
   if ($isGuest) {
     $_SESSION['toast'] = ['message' => '⚠️ Guests cannot delete medicines.', 'type' => 'error'];
-    header('Location: staff_dashboard.php');
+    header('Location: dashboard.php?section=inventory');
     exit();
   }
 
@@ -327,7 +327,7 @@ if (isset($_GET['delete'])) {
   }
   $conn->query("DELETE FROM medicines WHERE id = $id");
   $_SESSION['toast'] = ['message' => 'Medicine deleted successfully!', 'type' => 'success'];
-  header('Location: staff_dashboard.php');
+  header('Location: dashboard.php?section=inventory');
   exit();
 }
 // Edit Data
@@ -927,7 +927,7 @@ ORDER BY month
         No medicines found matching your search.
       </p>
 
-      <!-- Add Medicine Modal -->
+      <!-- Add Modal -->
       <div id="addMedicineModal" class="modal">
         <div class="modal-content" style="max-width:500px;">
           <div class="modal-header">
@@ -935,7 +935,7 @@ ORDER BY month
             <span class="modal-close" onclick="closeAddMedicineModal()">&times;</span>
           </div>
           <div class="modal-body" style="padding-top:1rem;">
-            <form method="POST" action="staff_dashboard.php" enctype="multipart/form-data">
+            <form method="POST" action="dashboard.php" enctype="multipart/form-data">
               <label
                 style="display:block;font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">Medicine
                 Name</label>
@@ -1194,7 +1194,7 @@ ORDER BY month
                           <i class="fas fa-clock"></i> Pending
                         </span>
                       <?php else: ?>
-                        <a href="staff_dashboard.php?donate=<?= (int) $med['id'] ?>" class="btn btn-purple"
+                        <a href="dashboard.php?donate=<?= (int) $med['id'] ?>" class="btn btn-purple"
                           onclick="return confirm('Request donation for &quot;<?= htmlspecialchars($med['name']) ?>&quot;?')">
                           <i class="fas fa-gift"></i> Donate
                         </a>
@@ -1563,7 +1563,7 @@ ORDER BY month
           <h3>🗑️ Dispose of <span id="disposalMedName"></span></h3>
           <span class="modal-close" onclick="closeDisposalModal()">&times;</span>
         </div>
-        <form method="POST" action="staff_dashboard.php">
+        <form method="POST" action="dashboard.php">
           <input type="hidden" name="medicine_id" id="disposalMedId">
           <div style="padding: 20px;">
             <p><strong>How will you dispose of this item?</strong></p>
@@ -1606,38 +1606,97 @@ ORDER BY month
 
     <!-- Edit Modal -->
     <div id="editModal" class="modal">
-      <div class="modal-content">
+      <div class="modal-content" style="max-width:480px;">
         <div class="modal-header">
-          <h3>✏️ Edit Medicine</h3>
-          <span class="modal-close" onclick="closeEditModal()">&times;</span>
+          <h3><i class="fas fa-edit" style="color:var(--red-light);margin-right:8px;"></i>Edit Medicine</h3>
+          <button class="modal-close" onclick="closeEditModal()">&times;</button>
         </div>
-        <div class="modal-body">
-          <form id="editForm" method="POST" action="staff_dashboard.php" enctype="multipart/form-data">
-            <input type="hidden" name="id" id="edit_id">
-            <label>Medicine Name</label>
-            <input type="text" name="name" id="edit_name" required style="width:100%;margin-bottom:10px;">
-            <label>Category</label>
-            <select name="type" id="edit_type" required style="width:100%;margin-bottom:10px;">
-              <?php foreach ($categories as $cat): ?>
-                <option value="<?php echo $cat; ?>"><?php echo $cat; ?></option>
-              <?php endforeach; ?>
-            </select>
-            <label>Batch Date</label>
-            <input type="date" name="batch_date" id="edit_batch_date" required style="width:100%;margin-bottom:10px;">
-            <label>Expiration Date</label>
-            <input type="date" name="expired_date" id="edit_expired_date" required
-              style="width:100%;margin-bottom:10px;">
-            <label>Quantity</label>
-            <input type="number" name="quantity" id="edit_quantity" required min="1"
-              style="width:100%;margin-bottom:10px;">
-            <label>Change Image (Optional)</label>
-            <input type="file" name="image" style="margin-bottom:10px;">
-            <button type="submit" name="update_medicine"
-              style="background:#1a73e8;color:white;padding:10px;width:100%;border:none;border-radius:5px;">
-              💾 Update Medicine
+        <form id="editForm" method="POST" action="dashboard.php" enctype="multipart/form-data"
+              style="padding:1.2rem 0 0;">
+          <input type="hidden" name="id" id="edit_id">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px;">
+
+            <!-- Medicine Name (full width) -->
+            <div style="grid-column:1/-1;margin-bottom:1rem;">
+              <label style="display:block;font-size:0.68rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">
+                <i class="fas fa-pills" style="color:var(--red-light);margin-right:4px;"></i>Medicine Name
+              </label>
+              <input type="text" name="name" id="edit_name" required
+                    style="width:100%;height:42px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;transition:border-color 0.2s;"
+                    onfocus="this.style.borderColor='var(--red)'"
+                    onblur="this.style.borderColor='var(--border)'">
+            </div>
+
+            <!-- Category -->
+            <div style="margin-bottom:1rem;">
+              <label style="display:block;font-size:0.68rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">
+                <i class="fas fa-tags" style="color:var(--red-light);margin-right:4px;"></i>Category
+              </label>
+              <select name="type" id="edit_type" required
+                      style="width:100%;height:42px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;appearance:none;background:#fff;transition:border-color 0.2s;"
+                      onfocus="this.style.borderColor='var(--red)'"
+                      onblur="this.style.borderColor='var(--border)'">
+                <?php foreach ($categories as $cat): ?>
+                  <option value="<?= $cat ?>"><?= $cat ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+
+            <!-- Quantity -->
+            <div style="margin-bottom:1rem;">
+              <label style="display:block;font-size:0.68rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">
+                <i class="fas fa-cubes" style="color:var(--red-light);margin-right:4px;"></i>Quantity
+              </label>
+              <input type="number" name="quantity" id="edit_quantity" required min="1"
+                    style="width:100%;height:42px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;transition:border-color 0.2s;"
+                    onfocus="this.style.borderColor='var(--red)'"
+                    onblur="this.style.borderColor='var(--border)'">
+            </div>
+
+            <!-- Batch Date -->
+            <div style="margin-bottom:1rem;">
+              <label style="display:block;font-size:0.68rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">
+                <i class="fas fa-calendar" style="color:var(--red-light);margin-right:4px;"></i>Batch Date
+              </label>
+              <input type="date" name="batch_date" id="edit_batch_date" required
+                    style="width:100%;height:42px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;transition:border-color 0.2s;"
+                    onfocus="this.style.borderColor='var(--red)'"
+                    onblur="this.style.borderColor='var(--border)'">
+            </div>
+
+            <!-- Expiry Date -->
+            <div style="margin-bottom:1rem;">
+              <label style="display:block;font-size:0.68rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">
+                <i class="fas fa-calendar-times" style="color:var(--red-light);margin-right:4px;"></i>Expiry Date
+              </label>
+              <input type="date" name="expired_date" id="edit_expired_date" required
+                    style="width:100%;height:42px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;transition:border-color 0.2s;"
+                    onfocus="this.style.borderColor='var(--red)'"
+                    onblur="this.style.borderColor='var(--border)'">
+            </div>
+
+            <!-- Image upload (full width) -->
+            <div style="grid-column:1/-1;margin-bottom:1.2rem;">
+              <label style="display:block;font-size:0.68rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">
+                <i class="fas fa-image" style="color:var(--red-light);margin-right:4px;"></i>Change Image <span style="text-transform:none;font-weight:400;color:#b5c1ce;">(optional)</span>
+              </label>
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1.5px dashed var(--border);border-radius:8px;background:#f8fafc;">
+                <i class="fas fa-upload" style="color:var(--red-light);"></i>
+                <input type="file" name="image" accept="image/*" style="font-size:0.82rem;color:#6b7280;border:none;outline:none;background:none;flex:1;">
+              </div>
+            </div>
+
+          </div>
+
+          <!-- footer buttons -->
+          <div style="display:flex;gap:8px;justify-content:flex-end;padding-top:0.75rem;border-top:1px solid var(--border);">
+            <button type="button" onclick="closeEditModal()" class="btn btn-grey">Cancel</button>
+            <button type="submit" name="update_medicine" class="btn btn-add">
+              <i class="fas fa-save"></i> Save Changes
             </button>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
     </div>
 

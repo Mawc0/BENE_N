@@ -525,6 +525,32 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
     </div>
   </div>
 
+  <!-- Add User Modal -->
+  <div id="addUserModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><i class="fas fa-user-plus" style="color:var(--red-light);margin-right:8px;"></i> Add New User</h3>
+        <button class="modal-close" onclick="closeAddUserModal()">&#215;</button>
+      </div>
+      <form method="POST">
+        <label>Username</label>
+        <input type="text" name="username" placeholder="Enter username" required>
+        <label>Temporary Password <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+        <input type="text" name="password" placeholder="Leave blank to auto-generate">
+        <p class="form-hint">User will be required to change it on first login.</p>
+        <label>Role</label>
+        <select name="role" required>
+          <option value="staff">Staff</option>
+          <option value="guest">Guest</option>
+        </select>
+        <div class="modal-footer">
+          <button type="button" onclick="closeAddUserModal()" class="btn btn-grey">Cancel</button>
+          <button type="submit" name="add_user" class="btn btn-add"><i class="fas fa-plus"></i> Add User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Sidebar -->
   <div class="sidebar" id="sidebar">
     <div class="sidebar-header">
@@ -782,44 +808,37 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
       <?php if (!empty($success_message)): ?>
         <div class="alert alert-success"><?= htmlspecialchars($success_message) ?></div><?php endif; ?>
 
-      <form method="GET" class="inline-search">
-        <input type="hidden" name="page" value="manage_users">
-        <input type="text" name="search" placeholder="&#128269; Search users..."
-          value="<?= htmlspecialchars($search ?? '') ?>">
-        <button type="submit" class="btn"><i class="fas fa-search"></i> Search</button>
-      </form>
-
-      <div class="form-card">
-        <h3><?= !empty($editUser) ? 'Edit User' : 'Add New User' ?></h3>
-        <form method="POST">
-          <?php if (!empty($editUser)): ?>
-            <input type="hidden" name="id" value="<?= (int) $editUser['id'] ?>">
-            <label>Username</label>
-            <input type="text" name="username" value="<?= htmlspecialchars($editUser['username']) ?>" required>
-            <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1rem;">Role:
-              <strong><?= ucfirst($editUser['role']) ?></strong>
-            </p>
-            <button type="submit" name="update_user" class="btn"><i class="fas fa-save"></i> Update User</button>
-            <a class="btn btn-grey" href="dashboard.php?page=manage_users" style="margin-left:6px;">Cancel</a>
-          <?php else: ?>
-            <label>Username</label>
-            <input type="text" name="username" placeholder="Enter username" required>
-            <label>Temporary Password <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
-            <input type="text" name="password" placeholder="Leave blank to auto-generate">
-            <p class="form-hint">User will be required to change it on first login.</p>
-            <label>Role</label>
-            <select name="role" required>
-              <option value="staff">Staff</option>
-              <option value="guest">Guest</option>
-            </select>
-            <button type="submit" name="add_user" class="btn btn-add" style="margin-top:4px;"><i class="fas fa-plus"></i>
-              Add User</button>
-          <?php endif; ?>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:1rem;">
+        <form method="GET" class="inline-search" style="margin-bottom:0;flex:1;min-width:200px;">
+          <input type="hidden" name="page" value="manage_users">
+          <input type="text" name="search" placeholder="&#128269; Search users..."
+            value="<?= htmlspecialchars($search ?? '') ?>">
+          <button type="submit" class="btn"><i class="fas fa-search"></i> Search</button>
         </form>
+        <button class="btn btn-add" onclick="openAddUserModal()" style="white-space:nowrap;">
+          <i class="fas fa-user-plus"></i> Add User
+        </button>
       </div>
 
+      <?php if (!empty($editUser)): ?>
+      <div class="form-card">
+        <h3>Edit User</h3>
+        <form method="POST">
+          <input type="hidden" name="id" value="<?= (int) $editUser['id'] ?>">
+          <label>Username</label>
+          <input type="text" name="username" value="<?= htmlspecialchars($editUser['username']) ?>" required>
+          <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1rem;">Role:
+            <strong><?= ucfirst($editUser['role']) ?></strong>
+          </p>
+          <button type="submit" name="update_user" class="btn"><i class="fas fa-save"></i> Update User</button>
+          <a class="btn btn-grey" href="dashboard.php?page=manage_users" style="margin-left:6px;">Cancel</a>
+        </form>
+      </div>
+      <?php endif; ?>
+
       <div class="table-wrap">
-        <table>
+        <table id="usersTable">
+          <thead>
           <tr>
             <th>ID</th>
             <th>Username</th>
@@ -829,6 +848,8 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
             <th>Status</th>
             <th>Action</th>
           </tr>
+          </thead>
+          <tbody id="usersTableBody">
           <?php if (!empty($users) && $users->num_rows > 0): ?>
             <?php while ($row = $users->fetch_assoc()): ?>
               <tr>
@@ -858,8 +879,71 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
               <td colspan="7" style="text-align:center;color:var(--text-muted);">No users found.</td>
             </tr>
           <?php endif; ?>
+          </tbody>
         </table>
+        <div id="usersPagination" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-top:1px solid var(--border-color,#e5e7eb);flex-wrap:wrap;gap:8px;">
+          <span id="paginationInfo" style="font-size:0.82rem;color:var(--text-muted);"></span>
+          <div id="paginationControls" style="display:flex;gap:6px;align-items:center;"></div>
+        </div>
       </div>
+
+      <script>
+      (function() {
+        const ROWS_PER_PAGE = 7;
+        const tbody = document.getElementById('usersTableBody');
+        const info  = document.getElementById('paginationInfo');
+        const controls = document.getElementById('paginationControls');
+        if (!tbody) return;
+
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        let currentPage = 1;
+
+        function totalPages() {
+          return Math.max(1, Math.ceil(rows.length / ROWS_PER_PAGE));
+        }
+
+        function render() {
+          const tp = totalPages();
+          const start = (currentPage - 1) * ROWS_PER_PAGE;
+          const end   = start + ROWS_PER_PAGE;
+          rows.forEach((r, i) => r.style.display = (i >= start && i < end) ? '' : 'none');
+          info.textContent = rows.length === 0
+            ? ''
+            : `Showing ${start + 1}–${Math.min(end, rows.length)} of ${rows.length} users`;
+          buildControls(tp);
+        }
+
+        function buildControls(tp) {
+          controls.innerHTML = '';
+          const btnStyle = (active) =>
+            `display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--border-color,#e0e0e0);background:${active ? 'var(--red-light,#c0392b)' : 'transparent'};color:${active ? '#fff' : 'var(--text-muted)'};font-size:0.82rem;cursor:pointer;font-family:inherit;`;
+
+          const prev = document.createElement('button');
+          prev.innerHTML = '&#8592;';
+          prev.style.cssText = btnStyle(false);
+          prev.disabled = currentPage === 1;
+          prev.onclick = () => { if (currentPage > 1) { currentPage--; render(); } };
+          controls.appendChild(prev);
+
+          for (let p = 1; p <= tp; p++) {
+            const btn = document.createElement('button');
+            btn.textContent = p;
+            btn.style.cssText = btnStyle(p === currentPage);
+            btn.onclick = ((page) => () => { currentPage = page; render(); })(p);
+            controls.appendChild(btn);
+          }
+
+          const next = document.createElement('button');
+          next.innerHTML = '&#8594;';
+          next.style.cssText = btnStyle(false);
+          next.disabled = currentPage === tp;
+          next.onclick = () => { if (currentPage < totalPages()) { currentPage++; render(); } };
+          controls.appendChild(next);
+        }
+
+        render();
+      })();
+      </script>
 
     <?php elseif ($page === 'categories'): ?>
       <h1 class="page-heading">Medicine Categories</h1>
@@ -1079,6 +1163,18 @@ $isGuest = ($_SESSION['role'] ?? '') === 'guest';
   </div><!-- /main-content -->
 
   <script src="../../scripts/a_dashboard.js"></script>
+  <script>
+    function openAddUserModal() {
+      document.getElementById('addUserModal').style.display = 'flex';
+    }
+    function closeAddUserModal() {
+      document.getElementById('addUserModal').style.display = 'none';
+    }
+    // Close modal on backdrop click
+    document.getElementById('addUserModal').addEventListener('click', function(e) {
+      if (e.target === this) closeAddUserModal();
+    });
+  </script>
 </body>
 
 </html>

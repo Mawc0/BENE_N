@@ -1,6 +1,6 @@
 <?php
 // Database connection
-include 'db.php';
+include '../../db.php';
 
 $id = intval($_GET['id']);
 $result = $conn->query("SELECT * FROM medicines WHERE id = $id");

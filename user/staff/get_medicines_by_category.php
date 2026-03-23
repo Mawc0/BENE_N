@@ -1,6 +1,6 @@
 <?php
 // Database connection
-include 'db.php';
+include '../../db.php';
 
 $category = $_GET['category'] ?? '';
 if (!$category) {
