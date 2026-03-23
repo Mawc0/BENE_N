@@ -210,26 +210,41 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_medicine'])) {
     exit();
   }
 
-  $name = $_POST['name'];
-  $type = trim($_POST['type']);
-  $batch_date = $_POST['batch_date'];
-  $expired_date = $_POST['expired_date'];
-  $target_dir = '../../uploads/medicines/';
-  if (!is_dir($target_dir))
-    mkdir($target_dir, 0777, true);
+  $name        = $conn->real_escape_string($_POST['name']);
+  $type        = $conn->real_escape_string(trim($_POST['type']));
+  $batch_date  = $conn->real_escape_string($_POST['batch_date']);
+  $expired_date= $conn->real_escape_string($_POST['expired_date']);
+  $added_by    = $conn->real_escape_string($_SESSION['username'] ?? 'Unknown');
+  $target_dir  = '../../uploads/medicines/';
+  if (!is_dir($target_dir)) mkdir($target_dir, 0777, true);
   if ($_FILES['image']['error'] !== UPLOAD_ERR_OK) {
     $_SESSION['toast'] = ['message' => 'Upload failed with error code ' . $_FILES['image']['error'], 'type' => 'error'];
     header('Location: dashboard.php?section=inventory');
     exit();
   }
-  $image = basename($_FILES['image']['name']);
+  $image       = basename($_FILES['image']['name']);
   $target_file = $target_dir . $image;
-  $quantity = isset($_POST['quantity']) ? (int) $_POST['quantity'] : 100;
+  $quantity    = isset($_POST['quantity']) ? (int) $_POST['quantity'] : 100;
   if (move_uploaded_file($_FILES['image']['tmp_name'], $target_file)) {
     $sql = "INSERT INTO medicines (image, name, type, batch_date, expired_date, quantity, last_updated)
-        VALUES ('$image', '$name', '$type', '$batch_date', '$expired_date', $quantity, NOW())";
+            VALUES ('$image', '$name', '$type', '$batch_date', '$expired_date', $quantity, NOW())";
     if ($conn->query($sql) === TRUE) {
-      $_SESSION['toast'] = ['message' => 'Medicine added successfully!', 'type' => 'success'];
+      // Notify all admins
+      $notifyMsg = "{$added_by} added a new medicine: \"{$name}\" (Category: {$type}, Qty: {$quantity}).";
+      $notify = $conn->prepare("INSERT INTO notifications (user_id, message, is_read, created_at)
+                                SELECT id, ?, 0, NOW() FROM users WHERE role = 'admin'");
+      $notify->bind_param('s', $notifyMsg);
+      $notify->execute();
+      $notify->close();
+
+      // Write to logs table
+      $logMsg = "Staff {$added_by} added new medicine \"{$name}\" (Type: {$type}, Qty: {$quantity}, Batch: {$batch_date}, Expiry: {$expired_date}).";
+      $logStmt = $conn->prepare("INSERT INTO logs (user, action) VALUES ('admin', ?)");
+      $logStmt->bind_param('s', $logMsg);
+      $logStmt->execute();
+      $logStmt->close();
+
+      $_SESSION['toast'] = ['message' => "✅ Medicine \"{$name}\" added successfully by {$added_by}!", 'type' => 'success'];
     } else {
       $_SESSION['toast'] = ['message' => 'Error: ' . $conn->error, 'type' => 'error'];
     }
@@ -295,23 +310,63 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['adjust_stock'])) {
     exit();
   }
 
-  $id = (int) $_POST['id'];
+  $id     = (int) $_POST['id'];
   $change = (int) $_POST['change'];
   $action = $_POST['action'];
   $result = $conn->query("SELECT name, quantity, type FROM medicines WHERE id = $id");
   if ($result->num_rows > 0) {
-    $row = $result->fetch_assoc();
+    $row          = $result->fetch_assoc();
     $old_quantity = $row['quantity'];
-    $unit = getMedicineUnit($row['type']);
+    $unit         = getMedicineUnit($row['type']);
     if ($action === 'use' && $change > $old_quantity) {
       $_SESSION['toast'] = ['message' => "❌ Cannot use $change {$unit}. Only {$old_quantity} {$unit} available.", 'type' => 'error'];
       header('Location: dashboard.php?section=inventory');
       exit();
     }
     $new_quantity = ($action === 'use') ? $old_quantity - $change : $old_quantity + $change;
-    $verb = ($action === 'use') ? 'used' : 'added';
+    $verb         = ($action === 'use') ? 'used' : 'added';
     $conn->query("UPDATE medicines SET quantity = $new_quantity, last_updated = NOW() WHERE id = $id");
-    $_SESSION['toast'] = ['message' => "✅ {$change} {$unit} $verb — {$row['name']}. Stock: {$old_quantity} → {$new_quantity} {$unit}", 'type' => 'success'];
+
+    if ($action === 'use') {
+      $used_by     = trim($_POST['used_by']    ?? '');
+      $reason      = trim($_POST['use_reason'] ?? '');
+      $recorded_by = $_SESSION['username'] ?? 'Unknown';
+      $used_by     = !empty($used_by) ? $used_by : $recorded_by;
+      $reason      = !empty($reason)  ? $reason  : 'No reason provided';
+
+      // Save to dedicated medicine_usage_logs table
+      $usageStmt = $conn->prepare("
+        INSERT INTO medicine_usage_logs
+          (medicine_id, medicine_name, quantity_used, unit, qty_before, qty_after, used_by, reason, recorded_by, recorded_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      ");
+      $usageStmt->bind_param('ississsss',
+        $id, $row['name'], $change, $unit,
+        $old_quantity, $new_quantity,
+        $used_by, $reason, $recorded_by
+      );
+      $usageStmt->execute();
+      $usageStmt->close();
+
+      // Write to general logs table
+      $logMsg = "Staff {$recorded_by} recorded use of \"{$row['name']}\": {$change} {$unit} used by \"{$used_by}\". Reason: {$reason}. Stock: {$old_quantity} → {$new_quantity} {$unit}.";
+      $logStmt = $conn->prepare("INSERT INTO logs (user, action) VALUES ('admin', ?)");
+      $logStmt->bind_param('s', $logMsg);
+      $logStmt->execute();
+      $logStmt->close();
+
+      // Notify all admins
+      $notifyMsg = "{$recorded_by} recorded {$change} {$unit} of \"{$row['name']}\" used by \"{$used_by}\". Reason: {$reason}. Remaining: {$new_quantity} {$unit}.";
+      $notify = $conn->prepare("INSERT INTO notifications (user_id, message, is_read, created_at)
+                                SELECT id, ?, 0, NOW() FROM users WHERE role = 'admin'");
+      $notify->bind_param('s', $notifyMsg);
+      $notify->execute();
+      $notify->close();
+
+      $_SESSION['toast'] = ['message' => "✅ {$change} {$unit} used from \"{$row['name']}\" by \"{$used_by}\". Stock: {$old_quantity} → {$new_quantity} {$unit}", 'type' => 'success'];
+    } else {
+      $_SESSION['toast'] = ['message' => "✅ {$change} {$unit} $verb — {$row['name']}. Stock: {$old_quantity} → {$new_quantity} {$unit}", 'type' => 'success'];
+    }
     header('Location: dashboard.php?section=inventory');
     exit();
   }
@@ -909,16 +964,11 @@ ORDER BY month
                             style="height:30px;padding:0 8px;font-size:0.75rem;">+ Add</button>
                         </form> -->
                         <!-- Use stock -->
-                        <form method="POST" style="display:inline-flex;align-items:center;gap:4px;">
-                          <input type="hidden" name="id" value="<?= (int) $row['id'] ?>">
-                          <input type="hidden" name="action" value="use">
-                          <input type="number" name="change" placeholder="<?= $unit ?>" min="1" required
-                            style="width:<?= $inputWidth ?>;height:30px;padding:0 6px;border:1.5px solid var(--border);border-radius:6px;font-size:0.78rem;outline:none;"
-                            title="Amount to use in <?= $unit ?>">
-                          <button type="submit" name="adjust_stock" class="btn btn-del"
-                            style="height:30px;padding:0 8px;font-size:0.75rem;" onclick="return confirm('Use this stock?')">−
-                            Use</button>
-                        </form>
+                        <button type="button"
+                          onclick="openUseModal(<?= (int)$row['id'] ?>, '<?= addslashes(htmlspecialchars($row['name'])) ?>', '<?= $unit ?>')"
+                          class="btn btn-del" style="height:30px;padding:0 10px;font-size:0.75rem;">
+                          <i class="fas fa-minus-circle"></i> Use
+                        </button>
                         <!-- Edit & Delete -->
                         <button onclick="openEditModal(<?= (int) $row['id'] ?>)" class="btn btn-info"
                           style="height:30px;padding:0 8px;font-size:0.75rem;background:#0288d1;">
@@ -1866,6 +1916,76 @@ ORDER BY month
       })();
     </script>
 
+
+    <!-- Use Medicine Modal -->
+    <div id="useMedicineModal" class="modal" style="display:none;">
+      <div class="modal-content" style="max-width:460px;">
+        <div class="modal-header">
+          <h3><i class="fas fa-hand-holding-medical" style="margin-right:8px;color:var(--red-light);"></i>Use Medical Supply</h3>
+          <span class="modal-close" onclick="closeUseModal()">&times;</span>
+        </div>
+        <div class="modal-body" style="padding-top:1rem;">
+          <form method="POST" action="dashboard.php" id="useStockForm">
+            <input type="hidden" name="id"     id="use_medicine_id">
+            <input type="hidden" name="action" value="use">
+
+            <!-- Medicine name display -->
+            <div style="margin-bottom:14px;padding:9px 12px;background:#fef2f2;border:1px solid #f0d8d8;border-radius:8px;font-size:0.85rem;color:var(--red-dark);font-weight:600;">
+              <i class="fas fa-pills" style="margin-right:6px;opacity:0.7;"></i><span id="use_medicine_name_display">—</span>
+            </div>
+
+            <!-- Amount -->
+            <label style="display:block;font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">
+              Amount to Use <span id="use_unit_label" style="text-transform:none;font-weight:400;color:#b5c1ce;"></span>
+            </label>
+            <input type="number" name="change" id="use_change_input" required min="1"
+              style="width:100%;height:42px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;margin-bottom:14px;outline:none;">
+
+            <!-- Used by -->
+            <label style="display:block;font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">
+              <i class="fas fa-user" style="color:var(--red-light);margin-right:4px;"></i>Used By <span style="text-transform:none;font-weight:400;color:#b5c1ce;">(patient or staff name)</span>
+            </label>
+            <input type="text" name="used_by" id="use_used_by" required placeholder="e.g. Juan dela Cruz"
+              style="width:100%;height:42px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;margin-bottom:14px;outline:none;">
+
+            <!-- Reason -->
+            <label style="display:block;font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#7a8da0;margin-bottom:4px;">
+              <i class="fas fa-clipboard" style="color:var(--red-light);margin-right:4px;"></i>Reason / Purpose
+            </label>
+            <textarea name="use_reason" id="use_reason_input" required rows="3"
+              placeholder="e.g. Fever treatment, wound dressing, routine check-up..."
+              style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;margin-bottom:18px;outline:none;resize:vertical;box-sizing:border-box;"></textarea>
+
+            <div style="display:flex;gap:8px;justify-content:flex-end;padding-top:0.6rem;border-top:1px solid var(--border);">
+              <button type="button" onclick="closeUseModal()" class="btn btn-grey">Cancel</button>
+              <button type="submit" name="adjust_stock" class="btn btn-del">
+                <i class="fas fa-minus-circle"></i> Confirm Use
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function openUseModal(id, name, unit) {
+        document.getElementById('use_medicine_id').value          = id;
+        document.getElementById('use_medicine_name_display').textContent = name;
+        document.getElementById('use_unit_label').textContent     = '(' + unit + ')';
+        document.getElementById('use_change_input').placeholder   = 'e.g. 5';
+        document.getElementById('use_change_input').value         = '';
+        document.getElementById('use_used_by').value              = '';
+        document.getElementById('use_reason_input').value         = '';
+        const modal = document.getElementById('useMedicineModal');
+        modal.style.display = 'flex';
+      }
+      function closeUseModal() {
+        document.getElementById('useMedicineModal').style.display = 'none';
+      }
+      document.getElementById('useMedicineModal').addEventListener('click', function(e) {
+        if (e.target === this) closeUseModal();
+      });
+    </script>
 
     <!-- Delete Confirmation Modal -->
     <div id="deleteModal" class="modal">
