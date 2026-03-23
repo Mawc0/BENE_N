@@ -393,3 +393,18 @@ Stack trace:
 #0 C:\xampp\htdocs\BENE\user\staff\chatbot.php(41): findMedicine('whats the weath...', NULL)
 #1 {main}
   thrown in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 32
+[23-Mar-2026 08:39:15 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\BENE\user\staff/config.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 16
+[23-Mar-2026 08:39:15 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\BENE\user\staff/config.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\BENE\user\staff\chatbot.php:16
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 16
+[23-Mar-2026 08:39:22 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\BENE\user\staff/config.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 16
+[23-Mar-2026 08:39:22 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\BENE\user\staff/config.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\BENE\user\staff\chatbot.php:16
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 16
+[23-Mar-2026 08:39:32 Europe/Berlin] PHP Warning:  require_once(C:\xampp\htdocs\BENE\user\staff/config.php): Failed to open stream: No such file or directory in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 16
+[23-Mar-2026 08:39:32 Europe/Berlin] PHP Fatal error:  Uncaught Error: Failed opening required 'C:\xampp\htdocs\BENE\user\staff/config.php' (include_path='C:\xampp\php\PEAR') in C:\xampp\htdocs\BENE\user\staff\chatbot.php:16
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\BENE\user\staff\chatbot.php on line 16
