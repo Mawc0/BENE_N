@@ -24,7 +24,6 @@ function updateAddMedUnit(selectEl) {
     if (qtyInput) qtyInput.placeholder = 'e.g. 100 pcs';
   }
 }
-
 // ── Video hover popup ──
 const popup = document.getElementById("videoPopup");
 const frame = document.getElementById("popupFrame");

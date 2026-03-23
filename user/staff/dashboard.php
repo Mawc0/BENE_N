@@ -39,6 +39,73 @@ if ($userId) {
 
 $isGuest = ($_SESSION['role'] ?? '') === 'guest';
 
+// ── LOW STOCK THRESHOLD ──────────────────────────────────────────────────────
+// Default threshold = 20. Staff (non-guest) can update it via POST.
+$thresholdRes = $conn->query("SELECT setting_value FROM system_settings WHERE setting_key = 'low_stock_threshold' LIMIT 1");
+$LOW_STOCK_THRESHOLD = 20; // fallback
+if ($thresholdRes && $thresholdRes->num_rows > 0) {
+  $LOW_STOCK_THRESHOLD = (int) $thresholdRes->fetch_assoc()['setting_value'];
+}
+
+// Handle threshold update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_threshold']) && !$isGuest && $userId) {
+  $newThreshold = max(1, (int) $_POST['low_stock_threshold']);
+  $conn->query("INSERT INTO system_settings (setting_key, setting_value)
+                VALUES ('low_stock_threshold', '$newThreshold')
+                ON DUPLICATE KEY UPDATE setting_value = '$newThreshold'");
+  $LOW_STOCK_THRESHOLD = $newThreshold;
+  $_SESSION['toast'] = ['message' => "✅ Low stock threshold updated to {$newThreshold}.", 'type' => 'success'];
+  header('Location: dashboard.php?section=stock-alerts');
+  exit();
+}
+
+// ── GENERATE STOCK-ALERT NOTIFICATIONS ──────────────────────────────────────
+// For every non-expired medicine at or below threshold, create a notification
+// for all admins IF one hasn't been created today already (deduplication).
+function generateStockAlertNotifications($conn, int $threshold): void
+{
+  $today = date('Y-m-d');
+  $stmt = $conn->prepare("
+    SELECT id, name, quantity, type
+    FROM medicines
+    WHERE quantity <= ?
+      AND expired_date >= CURDATE()
+      AND (status IS NULL OR status NOT IN ('inactive','disposed'))
+  ");
+  $stmt->bind_param('i', $threshold);
+  $stmt->execute();
+  $lowItems = $stmt->get_result();
+
+  while ($item = $lowItems->fetch_assoc()) {
+    // Skip if a stock-alert notification for this medicine already exists today
+    $checkStmt = $conn->prepare("
+      SELECT id FROM notifications
+      WHERE message LIKE CONCAT('%LOW STOCK ALERT%', ?, '%')
+        AND DATE(created_at) = ?
+      LIMIT 1
+    ");
+    $checkStmt->bind_param('ss', $item['name'], $today);
+    $checkStmt->execute();
+    $already = $checkStmt->get_result()->num_rows > 0;
+    $checkStmt->close();
+
+    if (!$already) {
+      $unit = (in_array($item['type'], ['Injection','Antiseptic','Syrup','Solution','Drops','Suspension'])) ? 'mL' : 'pcs';
+      $msg  = "⚠️ LOW STOCK ALERT: \"{$item['name']}\" has only {$item['quantity']} {$unit} remaining (threshold: {$threshold} {$unit}).";
+      $notifyStmt = $conn->prepare("
+        INSERT INTO notifications (user_id, message, is_read, created_at)
+        SELECT id, ?, 0, NOW() FROM users WHERE role = 'admin'
+      ");
+      $notifyStmt->bind_param('s', $msg);
+      $notifyStmt->execute();
+      $notifyStmt->close();
+    }
+  }
+  $stmt->close();
+}
+
+generateStockAlertNotifications($conn, $LOW_STOCK_THRESHOLD);
+
 // Donation Request Handler
 if (isset($_GET['donate']) && $userId) {
   if ($isGuest) {
@@ -323,6 +390,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['adjust_stock'])) {
       header('Location: dashboard.php?section=inventory');
       exit();
     }
+    // Block if usage would push stock below the low-stock threshold
+    if ($action === 'use') {
+      $projected = $old_quantity - $change;
+      if ($projected < $LOW_STOCK_THRESHOLD && $projected >= 0) {
+        // Allow but warn — generate immediate notification
+        $warnMsg = "⚠️ LOW STOCK ALERT: After recording use, \"{$row['name']}\" will have only {$projected} {$unit} remaining (threshold: {$LOW_STOCK_THRESHOLD} {$unit}).";
+        $warnStmt = $conn->prepare("INSERT INTO notifications (user_id, message, is_read, created_at)
+                                    SELECT id, ?, 0, NOW() FROM users WHERE role = 'admin'");
+        $warnStmt->bind_param('s', $warnMsg);
+        $warnStmt->execute();
+        $warnStmt->close();
+      }
+      if ($projected < 0) {
+        $_SESSION['toast'] = ['message' => "❌ Cannot use {$change} {$unit}. Only {$old_quantity} {$unit} available.", 'type' => 'error'];
+        header('Location: dashboard.php?section=inventory');
+        exit();
+      }
+    }
     $new_quantity = ($action === 'use') ? $old_quantity - $change : $old_quantity + $change;
     $verb         = ($action === 'use') ? 'used' : 'added';
     $conn->query("UPDATE medicines SET quantity = $new_quantity, last_updated = NOW() WHERE id = $id");
@@ -478,13 +563,27 @@ $result = $conn->query('SELECT * FROM medicines');
 $expiring_meds = $conn->query('SELECT * FROM medicines WHERE expired_date <= CURDATE() + INTERVAL 1 DAY AND expired_date >= CURDATE()');
 $expired_count = $expiring_meds->num_rows;
 $low_stock_count = 0;
-$result_low = $conn->query('SELECT quantity, expired_date FROM medicines');
+$result_low = $conn->query("SELECT quantity, expired_date FROM medicines WHERE status NOT IN ('inactive','disposed') OR status IS NULL");
 while ($row = $result_low->fetch_assoc()) {
   $exp = new DateTime($row['expired_date']);
-  $today = new DateTime();
-  if ($exp >= $today && $row['quantity'] <= 20) {
+  $today_dt = new DateTime();
+  if ($exp >= $today_dt && $row['quantity'] <= $LOW_STOCK_THRESHOLD) {
     $low_stock_count++;
   }
+}
+
+// Fetch low-stock medicines for the Stock Alerts section
+$lowStockItems = [];
+$lsRes = $conn->query("
+  SELECT id, name, type, quantity, expired_date, image
+  FROM medicines
+  WHERE quantity <= {$LOW_STOCK_THRESHOLD}
+    AND expired_date >= CURDATE()
+    AND (status IS NULL OR status NOT IN ('inactive','disposed'))
+  ORDER BY quantity ASC
+");
+while ($lsRow = $lsRes->fetch_assoc()) {
+  $lowStockItems[] = $lsRow;
 }
 $last_updated_query = $conn->query('SELECT MAX(last_updated) as latest_update FROM medicines');
 $last_updated = $last_updated_query->fetch_assoc()['latest_update'];
@@ -497,6 +596,93 @@ if ($userId) {
   if ($unreadRes)
     $unreadCount = (int) $unreadRes->fetch_assoc()['c'];
 }
+// ── MONTHLY STOCK REPORT DATA ────────────────────────────────────────────────
+$reportMonth = isset($_GET['report_month']) ? $_GET['report_month'] : date('Y-m');
+$reportMonthStart = $reportMonth . '-01';
+$reportMonthEnd   = date('Y-m-t', strtotime($reportMonthStart));
+$reportMonthLabel = date('F Y', strtotime($reportMonthStart));
+
+// Total medicines in stock at end of month
+$rTotalRes = $conn->query("SELECT COUNT(*) AS c, SUM(quantity) AS q FROM medicines WHERE (status IS NULL OR status NOT IN ('inactive','disposed'))");
+$rTotal = $rTotalRes->fetch_assoc();
+
+// Medicines added this month
+$rAddedRes = $conn->prepare("SELECT COUNT(*) AS c, SUM(quantity) AS q FROM medicines WHERE batch_date BETWEEN ? AND ?");
+$rAddedRes->bind_param('ss', $reportMonthStart, $reportMonthEnd);
+$rAddedRes->execute();
+$rAdded = $rAddedRes->get_result()->fetch_assoc();
+
+// Medicines used this month (from usage logs)
+$rPeriodStart = $reportMonthStart . ' 00:00:00';
+$rPeriodEnd   = $reportMonthEnd   . ' 23:59:59';
+$rUsedRes = $conn->prepare("SELECT COUNT(*) AS entries, SUM(quantity_used) AS total_used FROM medicine_usage_logs WHERE recorded_at BETWEEN ? AND ?");
+$rUsedRes->bind_param('ss', $rPeriodStart, $rPeriodEnd);
+$rUsedRes->execute();
+$rUsed = $rUsedRes->get_result()->fetch_assoc();
+
+// Medicines expired this month (from expired_logs)
+$rExpiredRes = $conn->prepare("SELECT COUNT(*) AS c, SUM(quantity_at_expiry) AS q FROM expired_logs WHERE recorded_at BETWEEN ? AND ?");
+$rExpiredRes->bind_param('ss', $rPeriodStart, $rPeriodEnd);
+$rExpiredRes->execute();
+$rExpired = $rExpiredRes->get_result()->fetch_assoc();
+
+// Low stock items count this month
+$rLowStockCount = count($lowStockItems);
+
+// Usage breakdown by category
+$rUsageByCat = [];
+$rUsageByCatRes = $conn->prepare("
+  SELECT m.type AS category, SUM(ul.quantity_used) AS total_used
+  FROM medicine_usage_logs ul
+  JOIN medicines m ON ul.medicine_id = m.id
+  WHERE ul.recorded_at BETWEEN ? AND ?
+  GROUP BY m.type
+  ORDER BY total_used DESC
+");
+$rUsageByCatRes->bind_param('ss', $rPeriodStart, $rPeriodEnd);
+$rUsageByCatRes->execute();
+$rUsageByCatResult = $rUsageByCatRes->get_result();
+while ($row = $rUsageByCatResult->fetch_assoc()) {
+  $rUsageByCat[] = $row;
+}
+
+// Top 5 most used medicines this month
+$rTopUsed = [];
+$rTopUsedRes = $conn->prepare("
+  SELECT medicine_name, SUM(quantity_used) AS total_used, unit
+  FROM medicine_usage_logs
+  WHERE recorded_at BETWEEN ? AND ?
+  GROUP BY medicine_name, unit
+  ORDER BY total_used DESC
+  LIMIT 5
+");
+$rTopUsedRes->bind_param('ss', $rPeriodStart, $rPeriodEnd);
+$rTopUsedRes->execute();
+$rTopUsedResult = $rTopUsedRes->get_result();
+while ($row = $rTopUsedResult->fetch_assoc()) {
+  $rTopUsed[] = $row;
+}
+
+// Available months for the report picker
+$rMonthsRes = $conn->query("
+  SELECT DATE_FORMAT(recorded_at, '%Y-%m') AS m
+  FROM medicine_usage_logs
+  GROUP BY m
+  UNION
+  SELECT DATE_FORMAT(recorded_at, '%Y-%m') AS m
+  FROM expired_logs
+  GROUP BY m
+  ORDER BY m DESC
+  LIMIT 24
+");
+$reportMonths = [];
+while ($row = $rMonthsRes->fetch_assoc()) {
+  $reportMonths[] = $row['m'];
+}
+if (!in_array(date('Y-m'), $reportMonths)) {
+  array_unshift($reportMonths, date('Y-m'));
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -566,6 +752,15 @@ if ($userId) {
         <button class="nav-item" id="btn-donation-history"><i class="fas fa-clipboard-list"></i><span>My
             Requests</span></button>
 
+        <div class="nav-section-label">Stock</div>
+        <button class="nav-item" id="btn-stock-alerts">
+          <i class="fas fa-bell"></i><span>Stock Alerts</span>
+          <?php if ($low_stock_count > 0): ?>
+            <span style="margin-left:auto;background:#dc2626;color:#fff;border-radius:10px;padding:1px 7px;font-size:0.68rem;font-weight:700;"><?= $low_stock_count ?></span>
+          <?php endif; ?>
+        </button>
+        <button class="nav-item" id="btn-monthly-report"><i class="fas fa-chart-bar"></i><span>Monthly Report</span></button>
+
         <div class="nav-section-label">Records</div>
         <button class="nav-item" id="btn-expired-history"><i class="fas fa-history"></i><span>Expired Supply
             History</span></button>
@@ -581,10 +776,10 @@ if ($userId) {
   <div class="topbar" id="topbar">
     <span class="topbar-title" id="topbar-title">Dashboard</span>
     <div class="topbar-right">
-      <button class="topbar-btn" onclick="openModal()" title="Expiring medicines alert">
+      <button class="topbar-btn" onclick="showSection('stockAlerts')" title="Stock alerts">
         <i class="fas fa-bell"></i>
-        <?php if ($expired_count > 0): ?>
-          <span class="topbar-badge"><?= $expired_count ?></span>
+        <?php if ($low_stock_count > 0): ?>
+          <span class="topbar-badge"><?= $low_stock_count ?></span>
         <?php endif; ?>
       </button>
       <div class="topbar-divider"></div>
@@ -673,7 +868,7 @@ if ($userId) {
           <div class="stat-value" style="font-size:1rem;margin-top:0.3rem;"><?php echo $formatted_date; ?></div>
           <div class="stat-label">Last Updated</div>
         </div>
-        <div class="stat-card stat-card-5">
+        <div class="stat-card stat-card-5" onclick="showSection('stockAlerts')" style="cursor:pointer;" title="View Stock Alerts">
           <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
           <div class="stat-value"><?php echo $low_stock_count; ?></div>
           <div class="stat-label">Low Stock Alerts</div>
@@ -1512,6 +1707,308 @@ ORDER BY month
       </div>
     </div>
 
+    <!-- ══════════════════════════════════════════════════════════
+         STOCK ALERTS SECTION
+    ══════════════════════════════════════════════════════════ -->
+    <?php if (!$isGuest): ?>
+    <div id="content-stock-alerts" class="content">
+      <h1><i class="fas fa-bell" style="color:var(--red-light);margin-right:8px;"></i>Stock Alerts</h1>
+
+      <!-- Threshold Settings Card -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.2rem 1.4rem;margin-bottom:1.4rem;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:0.75rem;">
+          <i class="fas fa-sliders-h" style="color:var(--red-light);font-size:1rem;"></i>
+          <span style="font-size:0.92rem;font-weight:600;color:var(--text-main);">Low Stock Threshold</span>
+          <span style="background:#fef2f2;color:var(--red-dark);border-radius:8px;padding:2px 9px;font-size:0.75rem;font-weight:700;">Currently: <?= $LOW_STOCK_THRESHOLD ?> units</span>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1rem;">
+          Any medicine with quantity at or below this number will trigger an alert. Staff are warned before usage pushes stock below this level.
+        </p>
+        <form method="POST" action="dashboard.php?section=stock-alerts" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <label style="font-size:0.78rem;font-weight:600;color:#7a8da0;text-transform:uppercase;letter-spacing:0.07em;">New Threshold</label>
+          <input type="number" name="low_stock_threshold" value="<?= $LOW_STOCK_THRESHOLD ?>" min="1" max="9999" required
+            style="width:80px;height:38px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;">
+          <button type="submit" name="update_threshold" class="btn btn-add" style="height:38px;padding:0 16px;font-size:0.82rem;">
+            <i class="fas fa-save"></i> Update Threshold
+          </button>
+        </form>
+      </div>
+
+      <!-- Low Stock Table -->
+      <?php if (count($lowStockItems) > 0): ?>
+        <div style="background:#fff8f8;border:1px solid #f0d8d8;border-radius:10px;padding:0.9rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:10px;">
+          <i class="fas fa-exclamation-triangle" style="color:#dc2626;font-size:1.1rem;"></i>
+          <span style="font-size:0.87rem;font-weight:600;color:#9b1c1c;"><?= count($lowStockItems) ?> medicine(s) are at or below the low stock threshold of <?= $LOW_STOCK_THRESHOLD ?> units.</span>
+        </div>
+        <div class="table-wrap">
+          <table id="stock-alerts-table">
+            <thead>
+              <tr>
+                <th>Image</th>
+                <th>Medicine Name</th>
+                <th>Category</th>
+                <th style="text-align:center;">Qty</th>
+                <th>Unit</th>
+                <th>Expiry Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach ($lowStockItems as $ls):
+                $lsUnit = getMedicineUnit($ls['type']);
+                $lsQty  = (int) $ls['quantity'];
+                $lsExp  = new DateTime($ls['expired_date']);
+                $lsToday = new DateTime();
+                $lsDiff  = $lsToday->diff($lsExp);
+                $lsDays  = $lsDiff->days;
+                $lsColor = $lsQty == 0 ? '#dc2626' : ($lsQty <= max(1, (int)($LOW_STOCK_THRESHOLD * 0.5)) ? '#d97706' : '#9b1c1c');
+                ?>
+                <tr>
+                  <td><img src="../../uploads/medicines/<?= htmlspecialchars($ls['image']) ?>" width="40" height="40"
+                      style="border-radius:6px;object-fit:cover;" alt=""></td>
+                  <td style="font-weight:600;"><?= htmlspecialchars($ls['name']) ?></td>
+                  <td><span style="background:#fef2f2;color:var(--red-dark);padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;"><?= htmlspecialchars($ls['type']) ?></span></td>
+                  <td style="text-align:center;font-weight:700;color:<?= $lsColor ?>;font-size:1rem;"><?= $lsQty ?></td>
+                  <td style="color:#6b7280;font-size:0.82rem;"><?= $lsUnit ?></td>
+                  <td><?= htmlspecialchars($ls['expired_date']) ?></td>
+                  <td>
+                    <?php if ($lsQty == 0): ?>
+                      <span style="background:#dc2626;color:#fff;border-radius:8px;padding:3px 10px;font-size:0.75rem;font-weight:700;">🚫 Out of Stock</span>
+                    <?php elseif ($lsQty <= max(1, (int)($LOW_STOCK_THRESHOLD * 0.5))): ?>
+                      <span style="background:#fef3c7;color:#92400e;border-radius:8px;padding:3px 10px;font-size:0.75rem;font-weight:700;">🔴 Critical</span>
+                    <?php else: ?>
+                      <span style="background:#fef2f2;color:#9b1c1c;border-radius:8px;padding:3px 10px;font-size:0.75rem;font-weight:700;">⚠️ Low</span>
+                    <?php endif; ?>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      <?php else: ?>
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:1.2rem;text-align:center;color:#166534;font-size:0.88rem;">
+          <i class="fas fa-check-circle" style="font-size:1.4rem;margin-bottom:0.5rem;display:block;color:#16a34a;"></i>
+          <strong>All clear!</strong> No medicines are currently at or below the threshold of <?= $LOW_STOCK_THRESHOLD ?> units.
+        </div>
+      <?php endif; ?>
+    </div>
+
+
+    <!-- ══════════════════════════════════════════════════════════
+         MONTHLY STOCK REPORT SECTION
+    ══════════════════════════════════════════════════════════ -->
+    <div id="content-monthly-report" class="content">
+      <h1><i class="fas fa-chart-bar" style="color:var(--red-light);margin-right:8px;"></i>Monthly Stock Report</h1>
+
+      <!-- Month Picker -->
+      <form method="GET" action="dashboard.php" style="display:flex;align-items:center;gap:10px;margin-bottom:1.4rem;flex-wrap:wrap;">
+        <input type="hidden" name="section" value="monthly-report">
+        <label style="font-size:0.78rem;font-weight:600;color:#7a8da0;text-transform:uppercase;letter-spacing:0.07em;">Report Month</label>
+        <select name="report_month" onchange="this.form.submit()"
+          style="height:38px;padding:0 10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;outline:none;">
+          <?php foreach ($reportMonths as $rm): ?>
+            <option value="<?= $rm ?>" <?= $rm === $reportMonth ? 'selected' : '' ?>><?= date('F Y', strtotime($rm . '-01')) ?></option>
+          <?php endforeach; ?>
+        </select>
+        <button type="button" onclick="printMonthlyReport()" class="btn" style="background:#0288d1;height:38px;padding:0 14px;font-size:0.82rem;">
+          <i class="fas fa-print"></i> Print Report
+        </button>
+      </form>
+
+      <!-- Summary Cards -->
+      <div id="monthly-report-printable">
+        <div style="text-align:center;margin-bottom:1.2rem;display:none;" id="report-print-header">
+          <h2 style="font-family:'EB Garamond',serif;font-size:1.5rem;color:#5c0a0a;">BENE MediCon — Monthly Stock Report</h2>
+          <p style="color:#6b7280;font-size:0.88rem;"><?= $reportMonthLabel ?></p>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:1.4rem;">
+          <!-- Total active -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+            <div style="font-size:1.8rem;font-weight:700;color:var(--red-dark);"><?= (int)$rTotal['c'] ?></div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">Active Medicines</div>
+            <div style="font-size:0.7rem;color:#9b1c1c;font-weight:600;"><?= number_format((int)$rTotal['q']) ?> units total</div>
+          </div>
+          <!-- Added this month -->
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:1rem;text-align:center;">
+            <div style="font-size:1.8rem;font-weight:700;color:#166534;"><?= (int)$rAdded['c'] ?></div>
+            <div style="font-size:0.75rem;color:#4ade80;margin-top:4px;">Added This Month</div>
+            <div style="font-size:0.7rem;color:#166534;font-weight:600;"><?= number_format((int)$rAdded['q']) ?> units added</div>
+          </div>
+          <!-- Used this month -->
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:1rem;text-align:center;">
+            <div style="font-size:1.8rem;font-weight:700;color:#1d4ed8;"><?= (int)$rUsed['entries'] ?></div>
+            <div style="font-size:0.75rem;color:#93c5fd;margin-top:4px;">Usage Transactions</div>
+            <div style="font-size:0.7rem;color:#1d4ed8;font-weight:600;"><?= number_format((int)$rUsed['total_used']) ?> units used</div>
+          </div>
+          <!-- Expired this month -->
+          <div style="background:#fff8f8;border:1px solid #fecaca;border-radius:12px;padding:1rem;text-align:center;">
+            <div style="font-size:1.8rem;font-weight:700;color:#dc2626;"><?= (int)$rExpired['c'] ?></div>
+            <div style="font-size:0.75rem;color:#f87171;margin-top:4px;">Expired This Month</div>
+            <div style="font-size:0.7rem;color:#dc2626;font-weight:600;"><?= number_format((int)$rExpired['q']) ?> units lost</div>
+          </div>
+          <!-- Low stock -->
+          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:1rem;text-align:center;">
+            <div style="font-size:1.8rem;font-weight:700;color:#d97706;"><?= $rLowStockCount ?></div>
+            <div style="font-size:0.75rem;color:#fbbf24;margin-top:4px;">Low Stock Items</div>
+            <div style="font-size:0.7rem;color:#d97706;font-weight:600;">Below <?= $LOW_STOCK_THRESHOLD ?> units</div>
+          </div>
+        </div>
+
+        <!-- Two-column detail tables -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:1.4rem;">
+
+          <!-- Usage by Category -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+            <div style="padding:0.8rem 1rem;border-bottom:1px solid var(--border);font-weight:600;font-size:0.85rem;color:var(--text-main);display:flex;align-items:center;gap:6px;">
+              <i class="fas fa-tags" style="color:var(--red-light);"></i> Usage by Category — <?= $reportMonthLabel ?>
+            </div>
+            <table style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr style="background:#fef2f2;">
+                  <th style="padding:7px 10px;text-align:left;font-size:0.75rem;color:#9b1c1c;font-weight:600;">Category</th>
+                  <th style="padding:7px 10px;text-align:right;font-size:0.75rem;color:#9b1c1c;font-weight:600;">Units Used</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php if (count($rUsageByCat) > 0): ?>
+                  <?php foreach ($rUsageByCat as $ubc): ?>
+                    <tr style="border-top:1px solid var(--border);">
+                      <td style="padding:7px 10px;font-size:0.82rem;"><?= htmlspecialchars($ubc['category']) ?></td>
+                      <td style="padding:7px 10px;text-align:right;font-weight:600;font-size:0.82rem;color:#1d4ed8;"><?= number_format((int)$ubc['total_used']) ?></td>
+                    </tr>
+                  <?php endforeach; ?>
+                <?php else: ?>
+                  <tr><td colspan="2" style="padding:1rem;text-align:center;color:var(--text-muted);font-size:0.82rem;">No usage data for <?= $reportMonthLabel ?>.</td></tr>
+                <?php endif; ?>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Top 5 most used medicines -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+            <div style="padding:0.8rem 1rem;border-bottom:1px solid var(--border);font-weight:600;font-size:0.85rem;color:var(--text-main);display:flex;align-items:center;gap:6px;">
+              <i class="fas fa-fire" style="color:#d97706;"></i> Top 5 Most Used — <?= $reportMonthLabel ?>
+            </div>
+            <table style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr style="background:#fef2f2;">
+                  <th style="padding:7px 10px;text-align:left;font-size:0.75rem;color:#9b1c1c;font-weight:600;">#</th>
+                  <th style="padding:7px 10px;text-align:left;font-size:0.75rem;color:#9b1c1c;font-weight:600;">Medicine</th>
+                  <th style="padding:7px 10px;text-align:right;font-size:0.75rem;color:#9b1c1c;font-weight:600;">Used</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php if (count($rTopUsed) > 0): ?>
+                  <?php foreach ($rTopUsed as $i => $tu): ?>
+                    <tr style="border-top:1px solid var(--border);">
+                      <td style="padding:7px 10px;font-size:0.82rem;color:var(--text-muted);font-weight:700;"><?= $i+1 ?></td>
+                      <td style="padding:7px 10px;font-size:0.82rem;font-weight:600;"><?= htmlspecialchars($tu['medicine_name']) ?></td>
+                      <td style="padding:7px 10px;text-align:right;font-weight:600;font-size:0.82rem;color:#1d4ed8;"><?= number_format((int)$tu['total_used']) ?> <?= htmlspecialchars($tu['unit']) ?></td>
+                    </tr>
+                  <?php endforeach; ?>
+                <?php else: ?>
+                  <tr><td colspan="3" style="padding:1rem;text-align:center;color:var(--text-muted);font-size:0.82rem;">No usage data for <?= $reportMonthLabel ?>.</td></tr>
+                <?php endif; ?>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Current Low Stock List (for report) -->
+        <?php if (count($lowStockItems) > 0): ?>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:1.4rem;">
+          <div style="padding:0.8rem 1rem;border-bottom:1px solid var(--border);font-weight:600;font-size:0.85rem;color:var(--text-main);display:flex;align-items:center;gap:6px;background:#fff8f8;">
+            <i class="fas fa-exclamation-triangle" style="color:#dc2626;"></i> Current Low Stock Items (≤ <?= $LOW_STOCK_THRESHOLD ?> units)
+          </div>
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="background:#fef2f2;">
+                <th style="padding:7px 10px;text-align:left;font-size:0.75rem;color:#9b1c1c;font-weight:600;">Medicine</th>
+                <th style="padding:7px 10px;text-align:left;font-size:0.75rem;color:#9b1c1c;font-weight:600;">Category</th>
+                <th style="padding:7px 10px;text-align:center;font-size:0.75rem;color:#9b1c1c;font-weight:600;">Qty Remaining</th>
+                <th style="padding:7px 10px;text-align:left;font-size:0.75rem;color:#9b1c1c;font-weight:600;">Expiry</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach ($lowStockItems as $ls): ?>
+                <tr style="border-top:1px solid var(--border);">
+                  <td style="padding:7px 10px;font-size:0.82rem;font-weight:600;"><?= htmlspecialchars($ls['name']) ?></td>
+                  <td style="padding:7px 10px;font-size:0.82rem;"><?= htmlspecialchars($ls['type']) ?></td>
+                  <td style="padding:7px 10px;text-align:center;font-weight:700;color:#dc2626;"><?= (int)$ls['quantity'] ?> <?= getMedicineUnit($ls['type']) ?></td>
+                  <td style="padding:7px 10px;font-size:0.82rem;"><?= htmlspecialchars($ls['expired_date']) ?></td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+        <?php endif; ?>
+
+        <!-- Usage Chart -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;margin-bottom:1.4rem;height:260px;">
+          <canvas id="monthlyUsageChart"></canvas>
+        </div>
+        <script>
+        (function() {
+          const ctx = document.getElementById('monthlyUsageChart');
+          if (!ctx) return;
+          new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: <?= json_encode(array_column($rUsageByCat, 'category')) ?>,
+              datasets: [{
+                label: 'Units Used — <?= $reportMonthLabel ?>',
+                data:  <?= json_encode(array_map(fn($r) => (int)$r['total_used'], $rUsageByCat)) ?>,
+                backgroundColor: 'rgba(155,28,28,0.72)',
+                borderColor: '#9b1c1c',
+                borderWidth: 1.5,
+                borderRadius: 6,
+                borderSkipped: false
+              }]
+            },
+            options: {
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11, family: "'DM Sans',sans-serif" }, color: '#6b7280' }},
+                title:  { display: true, text: 'Units Used by Category — <?= $reportMonthLabel ?>', font: { size: 12, weight: '600', family: "'DM Sans',sans-serif" }, color: '#5c0a0a', padding: { top: 4, bottom: 8 }}
+              },
+              scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 11 }, color: '#9a8a85' }},
+                x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#9a8a85' }}
+              }
+            }
+          });
+        })();
+        </script>
+
+      </div><!-- #monthly-report-printable -->
+
+      <script>
+        function printMonthlyReport() {
+          const printContents = document.getElementById('monthly-report-printable').innerHTML;
+          const header = document.getElementById('report-print-header');
+          header.style.display = 'block';
+          const w = window.open('', '_blank');
+          w.document.write(`<!DOCTYPE html><html><head>
+            <title>Monthly Stock Report — <?= $reportMonthLabel ?></title>
+            <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=EB+Garamond:wght@400;600&display=swap" rel="stylesheet">
+            <style>
+              body { font-family:'DM Sans',sans-serif; color:#111; margin:24px; }
+              table { width:100%; border-collapse:collapse; margin-bottom:16px; }
+              th, td { border:1px solid #e5e7eb; padding:6px 10px; font-size:12px; }
+              th { background:#fef2f2; color:#9b1c1c; }
+              @media print { button { display:none; } }
+            </style>
+          </head><body onload="window.print();window.close();">`);
+          w.document.write(printContents);
+          w.document.write('</body></html>');
+          w.document.close();
+          header.style.display = 'none';
+        }
+      </script>
+    </div>
+    <?php endif; ?>
+
     <!-- Expired Supply History -->
     <div id="content-expired-history" class="content">
       <h1>Expired Supply History</h1>
@@ -1834,6 +2331,38 @@ ORDER BY month
     </script>
     <script src="../../scripts/s_dashboard.js"></script>
     <script>
+      // ── Wire up new sections: Stock Alerts + Monthly Report ─────────────────
+      (function () {
+        const btnStockAlerts    = document.getElementById('btn-stock-alerts');
+        const contentStockAlerts = document.getElementById('content-stock-alerts');
+        const btnMonthlyReport   = document.getElementById('btn-monthly-report');
+        const contentMonthlyReport = document.getElementById('content-monthly-report');
+
+        if (btnStockAlerts && contentStockAlerts) {
+          buttons.stockAlerts  = btnStockAlerts;
+          contents.stockAlerts = contentStockAlerts;
+          sectionTitles.stockAlerts = 'Stock Alerts';
+          btnStockAlerts.addEventListener('click', () => showSection('stockAlerts'));
+        }
+        if (btnMonthlyReport && contentMonthlyReport) {
+          buttons.monthlyReport  = btnMonthlyReport;
+          contents.monthlyReport = contentMonthlyReport;
+          sectionTitles.monthlyReport = 'Monthly Stock Report';
+          btnMonthlyReport.addEventListener('click', () => showSection('monthlyReport'));
+        }
+      })();
+
+      // ── Handle ?section= param for Stock Alerts + Monthly Report ────────────
+      (function () {
+        const sec = new URLSearchParams(window.location.search).get('section');
+        if (sec === 'stock-alerts' && typeof showSection === 'function') {
+          document.addEventListener('DOMContentLoaded', () => showSection('stockAlerts'));
+        }
+        if (sec === 'monthly-report' && typeof showSection === 'function') {
+          document.addEventListener('DOMContentLoaded', () => showSection('monthlyReport'));
+        }
+      })();
+
       // Records section wiring
       (function () {
         const btnExpiredHistory = document.getElementById('btn-expired-history');
