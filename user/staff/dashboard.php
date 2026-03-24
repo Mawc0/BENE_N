@@ -5,6 +5,28 @@ date_default_timezone_set('Asia/Manila');
 // Database connection
 include '../../db.php';
 
+// ── AJAX: fetch notifications ─────────────────────────────────────────────────
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'notifications') {
+  $uid = $_SESSION['user_id'] ?? null;
+  header('Content-Type: application/json');
+  if (!$uid) { echo json_encode([]); exit; }
+  $res = $conn->prepare("SELECT id, message, is_read, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 60");
+  $res->bind_param('i', $uid);
+  $res->execute();
+  $rows = $res->get_result()->fetch_all(MYSQLI_ASSOC);
+  echo json_encode($rows);
+  exit;
+}
+
+// ── AJAX: mark all notifications read ────────────────────────────────────────
+if (isset($_POST['ajax']) && $_POST['ajax'] === 'mark_all_read') {
+  $uid = $_SESSION['user_id'] ?? null;
+  header('Content-Type: application/json');
+  if ($uid) { $conn->query("UPDATE notifications SET is_read = 1 WHERE user_id = $uid"); }
+  echo json_encode(['ok' => true]);
+  exit;
+}
+
 // Access control: Only allow staff and guests
 // Redirect guests to a limited dashboard
 // Notifies new Staff to change password and set security question
@@ -915,10 +937,10 @@ if ($usageLogsRes) {
   <div class="topbar" id="topbar">
     <span class="topbar-title" id="topbar-title">Dashboard</span>
     <div class="topbar-right">
-      <button class="topbar-btn" onclick="showSection('stockAlerts')" title="Stock alerts">
+      <button class="topbar-btn" onclick="openNotificationsModal()" title="Notifications" id="bellBtn">
         <i class="fas fa-bell"></i>
         <?php if ($unreadCount > 0): ?>
-          <span class="topbar-badge"><?= $unreadCount ?></span>
+          <span class="topbar-badge" id="bellBadge"><?= $unreadCount ?></span>
         <?php endif; ?>
       </button>
       <div class="topbar-divider"></div>
@@ -2760,44 +2782,51 @@ ORDER BY month
 
     <!-- Modals + Chatbot -->
     <!-- Expiring Medicines Modal -->
-    <div id="notificationModal" class="modal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>⚠️ Medicines Expiring Within 1 Day</h3>
-          <span class="modal-close" onclick="closeModal()">&times;</span>
+    <!-- Notifications Modal -->
+    <div id="notificationModal" class="modal" style="display:none;" onclick="if(event.target===this)closeNotificationsModal()">
+      <div class="modal-content" style="max-width:520px;max-height:85vh;display:flex;flex-direction:column;border-radius:16px;overflow:hidden;">
+        <!-- Header -->
+        <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--border);flex-shrink:0;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <i class="fas fa-bell" style="color:var(--red-light);font-size:1rem;"></i>
+            <h3 style="margin:0;font-size:1rem;font-family:'EB Garamond',serif;color:var(--red-dark);">Notifications</h3>
+            <span id="notifUnreadBadge" style="background:#dc2626;color:#fff;border-radius:10px;padding:1px 8px;font-size:0.68rem;font-weight:700;display:none;"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button onclick="markAllNotificationsRead()" id="markAllBtn"
+              style="font-size:0.72rem;color:var(--red-light);background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;padding:4px 8px;border-radius:6px;transition:background 0.15s;"
+              onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='none'">
+              Mark all read
+            </button>
+            <button onclick="closeNotificationsModal()" style="width:28px;height:28px;border-radius:6px;background:#f3f4f6;border:none;cursor:pointer;font-size:1rem;color:#6b7280;">&times;</button>
+          </div>
         </div>
-        <div class="modal-body">
-          <?php if ($expired_count > 0): ?>
-            <table>
-              <tr>
-                <th>Image</th>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Batch Date</th>
-                <th>Expiry Date</th>
-                <th>Quantity</th>
-                <th>Status</th>
-              </tr>
-              <?php
-              $expiring_meds = $conn->query('SELECT * FROM medicines WHERE expired_date <= CURDATE() + INTERVAL 1 DAY AND expired_date >= CURDATE()');
-              while ($med = $expiring_meds->fetch_assoc()):
-                $balance = $med['quantity'];
-                $status = $balance <= 20 ? '⚠️ Low Stock' : '✅ In Stock';
-                ?>
-                <tr>
-                  <td><img src="../../uploads/medicines/<?php echo htmlspecialchars($med['image']); ?>" width="50"></td>
-                  <td><?php echo htmlspecialchars($med['name']); ?></td>
-                  <td><?php echo htmlspecialchars($med['type']); ?></td>
-                  <td><?php echo htmlspecialchars($med['batch_date']); ?></td>
-                  <td><?php echo htmlspecialchars($med['expired_date']); ?></td>
-                  <td><?php echo (int) $med['quantity']; ?></td>
-                  <td><?= $status ?></td>
-                </tr>
-              <?php endwhile; ?>
-            </table>
-          <?php else: ?>
-            <p>No medicines expiring within 1 day.</p>
-          <?php endif; ?>
+
+        <!-- Filter tabs -->
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;background:#fafafa;">
+          <button class="notif-tab active" data-tab="all" onclick="filterNotifTab(this,'all')"
+            style="flex:1;padding:8px 0;font-size:0.75rem;font-weight:600;border:none;background:none;cursor:pointer;color:#374151;border-bottom:2px solid transparent;transition:all 0.15s;">All</button>
+          <button class="notif-tab" data-tab="stock" onclick="filterNotifTab(this,'stock')"
+            style="flex:1;padding:8px 0;font-size:0.75rem;font-weight:600;border:none;background:none;cursor:pointer;color:#9ca3af;border-bottom:2px solid transparent;transition:all 0.15s;">Stock Alerts</button>
+          <button class="notif-tab" data-tab="expiry" onclick="filterNotifTab(this,'expiry')"
+            style="flex:1;padding:8px 0;font-size:0.75rem;font-weight:600;border:none;background:none;cursor:pointer;color:#9ca3af;border-bottom:2px solid transparent;transition:all 0.15s;">Expiry Alerts</button>
+          <button class="notif-tab" data-tab="other" onclick="filterNotifTab(this,'other')"
+            style="flex:1;padding:8px 0;font-size:0.75rem;font-weight:600;border:none;background:none;cursor:pointer;color:#9ca3af;border-bottom:2px solid transparent;transition:all 0.15s;">Other</button>
+        </div>
+
+        <!-- Body -->
+        <div id="notifList" style="overflow-y:auto;flex:1;padding:0;">
+          <div id="notifLoading" style="text-align:center;padding:2.5rem;color:#9ca3af;font-size:0.85rem;">
+            <i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>Loading…
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding:0.65rem 1.25rem;border-top:1px solid var(--border);flex-shrink:0;text-align:center;">
+          <button onclick="closeNotificationsModal();showSection('stockAlerts')"
+            style="font-size:0.75rem;color:var(--red-light);background:none;border:none;cursor:pointer;font-weight:600;">
+            View Stock Alerts section →
+          </button>
         </div>
       </div>
     </div>
@@ -3480,6 +3509,133 @@ ORDER BY month
         XLSX.utils.book_append_sheet(wb, ws, 'Medicines');
         XLSX.writeFile(wb, 'medicine_import_template.xlsx');
       }
+    </script>
+
+    <!-- ── Notifications Modal JS ─────────────────────────────────────────── -->
+    <script>
+      let _notifAll   = [];   // full list from server
+      let _notifTab   = 'all'; // active filter
+
+      function openNotificationsModal() {
+        document.getElementById('notificationModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        loadNotifications();
+      }
+
+      function closeNotificationsModal() {
+        document.getElementById('notificationModal').style.display = 'none';
+        document.body.style.overflow = '';
+      }
+
+      async function loadNotifications() {
+        document.getElementById('notifLoading').style.display = 'block';
+        document.getElementById('notifList').innerHTML = '<div id="notifLoading" style="text-align:center;padding:2.5rem;color:#9ca3af;font-size:0.85rem;"><i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>Loading…</div>';
+        try {
+          const res  = await fetch('dashboard.php?ajax=notifications');
+          _notifAll  = await res.json();
+          renderNotifications();
+        } catch(e) {
+          document.getElementById('notifList').innerHTML = '<div style="text-align:center;padding:2rem;color:#ef4444;font-size:0.83rem;"><i class="fas fa-exclamation-circle"></i> Failed to load notifications.</div>';
+        }
+      }
+
+      function classifyNotif(msg) {
+        if (/LOW STOCK ALERT/i.test(msg))  return 'stock';
+        if (/EXPIRY ALERT/i.test(msg))     return 'expiry';
+        return 'other';
+      }
+
+      function filterNotifTab(btn, tab) {
+        _notifTab = tab;
+        document.querySelectorAll('.notif-tab').forEach(b => {
+          b.style.color         = '#9ca3af';
+          b.style.borderBottom  = '2px solid transparent';
+          b.style.background    = 'none';
+        });
+        btn.style.color        = 'var(--red-dark, #7f1d1d)';
+        btn.style.borderBottom = '2px solid var(--red-light, #c62828)';
+        btn.style.background   = '#fff';
+        renderNotifications();
+      }
+
+      function renderNotifications() {
+        const list = document.getElementById('notifList');
+        const filtered = _notifTab === 'all'
+          ? _notifAll
+          : _notifAll.filter(n => classifyNotif(n.message) === _notifTab);
+
+        // update badge
+        const unread = _notifAll.filter(n => !parseInt(n.is_read)).length;
+        const badge  = document.getElementById('notifUnreadBadge');
+        const bellB  = document.getElementById('bellBadge');
+        if (badge) { badge.textContent = unread; badge.style.display = unread > 0 ? 'inline-block' : 'none'; }
+        if (bellB) { bellB.textContent = unread; bellB.style.display = unread > 0 ? 'inline-block' : 'none'; }
+
+        if (!filtered.length) {
+          list.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:#9ca3af;">
+            <i class="fas fa-bell-slash" style="font-size:2rem;margin-bottom:10px;display:block;opacity:0.35;"></i>
+            <span style="font-size:0.83rem;">No notifications here.</span>
+          </div>`;
+          return;
+        }
+
+        list.innerHTML = filtered.map(n => {
+          const type    = classifyNotif(n.message);
+          const isUnread = !parseInt(n.is_read);
+          const icon    = type === 'stock'  ? '⚠️' :
+                          type === 'expiry' ? '🗓️' : '🔔';
+          const accent  = type === 'stock'  ? '#fef3c7' :
+                          type === 'expiry' ? '#fef2f2' : '#f0f9ff';
+          const dot     = isUnread
+            ? `<span style="width:8px;height:8px;border-radius:50%;background:#dc2626;flex-shrink:0;margin-top:3px;"></span>`
+            : `<span style="width:8px;height:8px;flex-shrink:0;"></span>`;
+
+          // Format date nicely
+          const dt  = new Date(n.created_at);
+          const now = new Date();
+          const diffMs  = now - dt;
+          const diffMin = Math.floor(diffMs / 60000);
+          const diffHr  = Math.floor(diffMin / 60);
+          const diffDay = Math.floor(diffHr / 24);
+          const timeStr = diffDay  > 0  ? `${diffDay}d ago`  :
+                          diffHr   > 0  ? `${diffHr}h ago`   :
+                          diffMin  > 0  ? `${diffMin}m ago`  : 'Just now';
+
+          return `<div style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-bottom:1px solid #f3f4f6;background:${isUnread ? accent : '#fff'};transition:background 0.2s;">
+            ${dot}
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:0.82rem;color:#1f2937;line-height:1.45;word-break:break-word;">
+                ${icon} ${escapeHtmlNotif(n.message)}
+              </div>
+              <div style="font-size:0.7rem;color:#9ca3af;margin-top:3px;">${timeStr}</div>
+            </div>
+          </div>`;
+        }).join('');
+      }
+
+      async function markAllNotificationsRead() {
+        const btn = document.getElementById('markAllBtn');
+        btn.textContent = 'Marking…';
+        btn.disabled = true;
+        try {
+          const fd = new FormData();
+          fd.append('ajax', 'mark_all_read');
+          await fetch('dashboard.php', { method: 'POST', body: fd });
+          _notifAll = _notifAll.map(n => ({ ...n, is_read: '1' }));
+          renderNotifications();
+        } catch(e) {}
+        btn.textContent = 'Mark all read';
+        btn.disabled = false;
+      }
+
+      function escapeHtmlNotif(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      // Close modal on Escape key
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeNotificationsModal();
+      });
     </script>
 
     <!-- Delete Confirmation Modal -->
