@@ -112,6 +112,53 @@ function generateStockAlertNotifications($conn, int $threshold): void
 
 generateStockAlertNotifications($conn, $LOW_STOCK_THRESHOLD);
 
+// ── GENERATE EXPIRY-SOON NOTIFICATIONS ───────────────────────────────────────
+// For every medicine expiring within 7 days, notify all admins once per day.
+function generateExpirySoonNotifications($conn): void
+{
+  $today   = date('Y-m-d');
+  $in7days = date('Y-m-d', strtotime('+7 days'));
+
+  $stmt = $conn->prepare("
+    SELECT id, name, expired_date, type
+    FROM medicines
+    WHERE expired_date BETWEEN CURDATE() AND ?
+      AND (status IS NULL OR status NOT IN ('inactive','disposed'))
+  ");
+  $stmt->bind_param('s', $in7days);
+  $stmt->execute();
+  $expiring = $stmt->get_result();
+
+  while ($item = $expiring->fetch_assoc()) {
+    // Deduplicate: skip if an expiry alert for this medicine already exists today
+    $check = $conn->prepare("
+      SELECT id FROM notifications
+      WHERE message LIKE CONCAT('%EXPIRY ALERT%', ?, '%')
+        AND DATE(created_at) = ?
+      LIMIT 1
+    ");
+    $check->bind_param('ss', $item['name'], $today);
+    $check->execute();
+    $already = $check->get_result()->num_rows > 0;
+    $check->close();
+
+    if (!$already) {
+      $daysLeft = (int) ceil((strtotime($item['expired_date']) - strtotime($today)) / 86400);
+      $msg = "🗓️ EXPIRY ALERT: \"{$item['name']}\" expires in {$daysLeft} day(s) (on {$item['expired_date']}).";
+      $notify = $conn->prepare("
+        INSERT INTO notifications (user_id, message, is_read, created_at)
+        SELECT id, ?, 0, NOW() FROM users WHERE role = 'admin'
+      ");
+      $notify->bind_param('s', $msg);
+      $notify->execute();
+      $notify->close();
+    }
+  }
+  $stmt->close();
+}
+
+generateExpirySoonNotifications($conn);
+
 // Donation Request Handler
 if (isset($_GET['donate']) && $userId) {
   if ($isGuest) {
@@ -870,8 +917,8 @@ if ($usageLogsRes) {
     <div class="topbar-right">
       <button class="topbar-btn" onclick="showSection('stockAlerts')" title="Stock alerts">
         <i class="fas fa-bell"></i>
-        <?php if ($low_stock_count > 0): ?>
-          <span class="topbar-badge"><?= $low_stock_count ?></span>
+        <?php if ($unreadCount > 0): ?>
+          <span class="topbar-badge"><?= $unreadCount ?></span>
         <?php endif; ?>
       </button>
       <div class="topbar-divider"></div>
